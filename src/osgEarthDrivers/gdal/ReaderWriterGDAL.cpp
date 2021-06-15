@@ -669,7 +669,7 @@ build_vrt(std::vector<std::string> &files, ResolutionStrategy resolutionStrategy
 
             // Add the products coordinates to the metadata
             const std::string tiles = oss.str();
-            bandProperties[j].setMetaData(CSLSetNameValue(bandProperties[j].getMetaData(), "GRIB_TILES", tiles.c_str()));
+            bandProperties[j].setMetaData(CSLSetNameValue(bandProperties[j].getMetaData(), "TILES_EXTENT", tiles.c_str()));
 
             GDALRasterBandH hBand;
             GDALAddBand(hVRTDS, bandProperties[j].dataType, NULL);
