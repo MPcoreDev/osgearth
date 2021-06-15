@@ -412,6 +412,8 @@ build_vrt(std::vector<std::string> &files, ResolutionStrategy resolutionStrategy
     DatasetProperty* psDatasetProperties =
             (DatasetProperty*) CPLMalloc(nInputFiles*sizeof(DatasetProperty));
 
+    std::vector<std::string> productsCoordinates;
+
     for(i=0;i<nInputFiles;i++)
     {
         const char* dsFileName = files[i].c_str();
@@ -453,6 +455,14 @@ build_vrt(std::vector<std::string> &files, ResolutionStrategy resolutionStrategy
             double product_maxY = psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_TOPLEFT_Y];
             double product_minY = product_maxY +
                     GDALGetRasterYSize(hDS) * psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_NS_RES];
+            double product_minX = psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_TOPLEFT_X];
+            double product_maxX = product_minX +
+                        psDatasetProperties[i].nRasterXSize * psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_WE_RES];
+
+            std::ostringstream oss ;
+            oss << product_minY << ' ' << product_maxY << ' ' << product_minX << ' ' << product_maxX;
+
+            productsCoordinates.push_back(oss.str());
 
             GDALGetBlockSize(GDALGetRasterBand( hDS, 1 ),
                              &psDatasetProperties[i].nBlockXSize,
@@ -651,6 +661,16 @@ build_vrt(std::vector<std::string> &files, ResolutionStrategy resolutionStrategy
 
         for(j=0;j<nBands;j++)
         {
+            // Join the products coordinates
+            std::ostringstream oss;
+            for (const auto &productCoordinates : productsCoordinates) {
+                oss << productCoordinates << ';';
+            }
+
+            // Add the products coordinates to the metadata
+            const std::string tiles = oss.str();
+            bandProperties[j].setMetaData(CSLSetNameValue(bandProperties[j].getMetaData(), "GRIB_TILES", tiles.c_str()));
+
             GDALRasterBandH hBand;
             GDALAddBand(hVRTDS, bandProperties[j].dataType, NULL);
             hBand = GDALGetRasterBand(hVRTDS, j+1);
