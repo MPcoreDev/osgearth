@@ -412,7 +412,7 @@ build_vrt(std::vector<std::string> &files, ResolutionStrategy resolutionStrategy
     DatasetProperty* psDatasetProperties =
             (DatasetProperty*) CPLMalloc(nInputFiles*sizeof(DatasetProperty));
 
-    std::vector<std::string> productsCoordinates;
+    std::vector<std::string> tilesExtent;
 
     for(i=0;i<nInputFiles;i++)
     {
@@ -462,7 +462,7 @@ build_vrt(std::vector<std::string> &files, ResolutionStrategy resolutionStrategy
             std::ostringstream oss ;
             oss << product_minY << ' ' << product_maxY << ' ' << product_minX << ' ' << product_maxX;
 
-            productsCoordinates.push_back(oss.str());
+            tilesExtent.push_back(oss.str());
 
             GDALGetBlockSize(GDALGetRasterBand( hDS, 1 ),
                              &psDatasetProperties[i].nBlockXSize,
@@ -661,16 +661,6 @@ build_vrt(std::vector<std::string> &files, ResolutionStrategy resolutionStrategy
 
         for(j=0;j<nBands;j++)
         {
-            // Join the products coordinates
-            std::ostringstream oss;
-            for (const auto &productCoordinates : productsCoordinates) {
-                oss << productCoordinates << ';';
-            }
-
-            // Add the products coordinates to the metadata
-            const std::string tiles = oss.str();
-            bandProperties[j].setMetaData(CSLSetNameValue(bandProperties[j].getMetaData(), "TILES_EXTENT", tiles.c_str()));
-
             GDALRasterBandH hBand;
             GDALAddBand(hVRTDS, bandProperties[j].dataType, NULL);
             hBand = GDALGetRasterBand(hVRTDS, j+1);
@@ -683,6 +673,22 @@ build_vrt(std::vector<std::string> &files, ResolutionStrategy resolutionStrategy
             else
                 GDALSetRasterNoDataValue(hBand, NO_DATA_VALUE);
         }
+
+        // Join the products coordinates
+        std::ostringstream oss;
+        for (const auto &tileExtent : tilesExtent) {
+            oss << tileExtent << ';';
+        }
+
+        // Add the products coordinates to the metadata
+        const std::string tilesExtentString = oss.str();
+        char **tilesExtentStringList = nullptr;
+        tilesExtentStringList = CSLSetNameValue(tilesExtentStringList, "TILES_EXTENT", tilesExtentString.c_str());
+        GDALRasterBandH hBand;
+        GDALAddBand(hVRTDS, GDT_Unknown, NULL);
+        hBand = GDALGetRasterBand(hVRTDS, nBands+1);
+        GDALSetMetadata(hBand, CSLDuplicate(tilesExtentStringList), NULL);
+        CSLDestroy(tilesExtentStringList);
 
         for(i=0;i<nInputFiles;i++)
         {
