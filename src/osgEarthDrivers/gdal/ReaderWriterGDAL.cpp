@@ -389,7 +389,7 @@ struct BboxTile
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  ****************************************************************************/
-static GDALDatasetH
+static std::pair<GDALDatasetH, std::vector<std::tuple<double, double, double, double>>>
 build_vrt(std::vector<std::string> &files, ResolutionStrategy resolutionStrategy)
 {
     GDAL_SCOPED_LOCK;
@@ -411,6 +411,8 @@ build_vrt(std::vector<std::string> &files, ResolutionStrategy resolutionStrategy
 
     DatasetProperty* psDatasetProperties =
             (DatasetProperty*) CPLMalloc(nInputFiles*sizeof(DatasetProperty));
+
+    std::vector<std::tuple<double, double, double, double>> tilesExtent;
 
     for(i=0;i<nInputFiles;i++)
     {
@@ -453,6 +455,11 @@ build_vrt(std::vector<std::string> &files, ResolutionStrategy resolutionStrategy
             double product_maxY = psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_TOPLEFT_Y];
             double product_minY = product_maxY +
                     GDALGetRasterYSize(hDS) * psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_NS_RES];
+            double product_minX = psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_TOPLEFT_X];
+            double product_maxX = product_minX +
+                        psDatasetProperties[i].nRasterXSize * psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_WE_RES];
+
+            tilesExtent.emplace_back(product_minY, product_maxY, product_minX, product_maxX);
 
             GDALGetBlockSize(GDALGetRasterBand( hDS, 1 ),
                              &psDatasetProperties[i].nBlockXSize,
@@ -730,75 +737,8 @@ build_vrt(std::vector<std::string> &files, ResolutionStrategy resolutionStrategy
 
     CPLFree(psDatasetProperties);
     CPLFree(projectionRef);
-    return hVRTDS;
+    return {hVRTDS, tilesExtent};
 }
-
-static std::vector<std::tuple<double, double, double, double>>
-build_tilesExtent(std::vector<std::string> &files)
-{
-    GDAL_SCOPED_LOCK;
-
-    int nInputFiles = files.size();
-
-    DatasetProperty* psDatasetProperties =
-            (DatasetProperty*) CPLMalloc(nInputFiles*sizeof(DatasetProperty));
-
-    std::vector<std::tuple<double, double, double, double>> tilesExtent;
-
-    for(int i=0;i<nInputFiles;i++)
-    {
-        const char* dsFileName = files[i].c_str();
-
-        GDALTermProgress( 1.0 * (i+1) / nInputFiles, NULL, NULL);
-
-        GDALDatasetH hDS = GDALOpen(dsFileName, GA_ReadOnly );
-        psDatasetProperties[i].isFileOK = FALSE;
-
-        if (hDS)
-        {
-            const char* proj = GDALGetProjectionRef(hDS);
-            if (!proj || strlen(proj) == 0)
-            {
-                std::string prjLocation = osgDB::getNameLessExtension( std::string(dsFileName) ) + std::string(".prj");
-                ReadResult r = URI(prjLocation).readString();
-                if ( r.succeeded() )
-                {
-                    proj = CPLStrdup( r.getString().c_str() );
-                }
-            }
-
-            GDALGetGeoTransform(hDS, psDatasetProperties[i].adfGeoTransform);
-            if (psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_ROTATION_PARAM1] != 0 ||
-                    psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_ROTATION_PARAM2] != 0)
-            {
-                OE_WARN << LC << "GDAL Driver does not support rotated geo transforms. Skipping " << dsFileName << std::endl;
-                GDALClose(hDS);
-                continue;
-            }
-            if (psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_NS_RES] >= 0)
-            {
-                OE_WARN << LC << "GDAL Driver does not support positive NS resolution. Skipping " << dsFileName << std::endl;
-                GDALClose(hDS);
-                continue;
-            }
-            psDatasetProperties[i].nRasterXSize = GDALGetRasterXSize(hDS);
-            psDatasetProperties[i].nRasterYSize = GDALGetRasterYSize(hDS);
-            double product_maxY = psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_TOPLEFT_Y];
-            double product_minY = product_maxY +
-                    GDALGetRasterYSize(hDS) * psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_NS_RES];
-            double product_minX = psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_TOPLEFT_X];
-            double product_maxX = product_minX +
-                        psDatasetProperties[i].nRasterXSize * psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_WE_RES];
-
-            tilesExtent.emplace_back(product_minY, product_maxY, product_minX, product_maxX);
-        }
-    }
-
-    CPLFree(psDatasetProperties);
-
-    return tilesExtent;
-}
-
 
 // This is simply the method GDALAutoCreateWarpedVRT() with the GDALSuggestedWarpOutput
 // logic replaced with something that will work properly for polar projections.
@@ -1185,8 +1125,9 @@ public:
                 {
                     //We couldn't get the VRT from the cache, so build it
                     osg::Timer_t startTime = osg::Timer::instance()->tick();
-                    _srcDS = (GDALDataset*)build_vrt(files, HIGHEST_RESOLUTION);
-                    _tilesExtent = build_tilesExtent(files);
+                    auto result = build_vrt(files, HIGHEST_RESOLUTION);
+                    _srcDS = (GDALDataset*)result.first;
+                    _tilesExtent = result.second;
                     osg::Timer_t endTime = osg::Timer::instance()->tick();
                     OE_INFO << LC << INDENT << "Built VRT in " << osg::Timer::instance()->delta_s(startTime, endTime) << " s" << std::endl;
 
@@ -1626,7 +1567,7 @@ public:
     }
 
     //! Get the tiles extent (minY, maxY, minX, maxX)
-    std::vector<std::tuple<double, double, double, double>> getTilesExtent () const
+    const std::vector<std::tuple<double, double, double, double>> &getTilesExtent () const
     {
         GDAL_SCOPED_LOCK;
 
