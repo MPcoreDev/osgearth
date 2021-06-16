@@ -389,6 +389,7 @@ struct BboxTile
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  ****************************************************************************/
+// Return a GDALDatasetH and a collection of tile extent (minY, maxY, minX, maxX)
 static std::pair<GDALDatasetH, std::vector<std::tuple<double, double, double, double>>>
 build_vrt(std::vector<std::string> &files, ResolutionStrategy resolutionStrategy)
 {
@@ -412,6 +413,7 @@ build_vrt(std::vector<std::string> &files, ResolutionStrategy resolutionStrategy
     DatasetProperty* psDatasetProperties =
             (DatasetProperty*) CPLMalloc(nInputFiles*sizeof(DatasetProperty));
 
+    // collection of tile extent (minY, maxY, minX, maxX)
     std::vector<std::tuple<double, double, double, double>> tilesExtent;
 
     for(i=0;i<nInputFiles;i++)
@@ -1569,8 +1571,6 @@ public:
     //! Get the tiles extent (minY, maxY, minX, maxX)
     const std::vector<std::tuple<double, double, double, double>> &getTilesExtent () const
     {
-        GDAL_SCOPED_LOCK;
-
         return _tilesExtent;
     }
 
@@ -2608,6 +2608,7 @@ private:
     double       _invtransform[6];
     double       _linearUnits;
 
+    // A collection of tile extent (minY, maxY, minX, maxX)
     std::vector<std::tuple<double, double, double, double>> _tilesExtent;
     GeoExtent _extents;
     Bounds _bounds;
