@@ -412,8 +412,6 @@ build_vrt(std::vector<std::string> &files, ResolutionStrategy resolutionStrategy
     DatasetProperty* psDatasetProperties =
             (DatasetProperty*) CPLMalloc(nInputFiles*sizeof(DatasetProperty));
 
-    std::vector<std::string> tilesExtent;
-
     for(i=0;i<nInputFiles;i++)
     {
         const char* dsFileName = files[i].c_str();
@@ -455,14 +453,6 @@ build_vrt(std::vector<std::string> &files, ResolutionStrategy resolutionStrategy
             double product_maxY = psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_TOPLEFT_Y];
             double product_minY = product_maxY +
                     GDALGetRasterYSize(hDS) * psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_NS_RES];
-            double product_minX = psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_TOPLEFT_X];
-            double product_maxX = product_minX +
-                        psDatasetProperties[i].nRasterXSize * psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_WE_RES];
-
-            std::ostringstream oss ;
-            oss << product_minY << ' ' << product_maxY << ' ' << product_minX << ' ' << product_maxX;
-
-            tilesExtent.push_back(oss.str());
 
             GDALGetBlockSize(GDALGetRasterBand( hDS, 1 ),
                              &psDatasetProperties[i].nBlockXSize,
@@ -674,22 +664,6 @@ build_vrt(std::vector<std::string> &files, ResolutionStrategy resolutionStrategy
                 GDALSetRasterNoDataValue(hBand, NO_DATA_VALUE);
         }
 
-        // Join the products coordinates
-        std::ostringstream oss;
-        for (const auto &tileExtent : tilesExtent) {
-            oss << tileExtent << ';';
-        }
-
-        // Add the products coordinates to the metadata
-        const std::string tilesExtentString = oss.str();
-        char **tilesExtentStringList = nullptr;
-        tilesExtentStringList = CSLSetNameValue(tilesExtentStringList, "TILES_EXTENT", tilesExtentString.c_str());
-        GDALRasterBandH hBand;
-        GDALAddBand(hVRTDS, GDT_Unknown, NULL);
-        hBand = GDALGetRasterBand(hVRTDS, nBands+1);
-        GDALSetMetadata(hBand, CSLDuplicate(tilesExtentStringList), NULL);
-        CSLDestroy(tilesExtentStringList);
-
         for(i=0;i<nInputFiles;i++)
         {
             if (psDatasetProperties[i].isFileOK == 0)
@@ -757,6 +731,72 @@ build_vrt(std::vector<std::string> &files, ResolutionStrategy resolutionStrategy
     CPLFree(psDatasetProperties);
     CPLFree(projectionRef);
     return hVRTDS;
+}
+
+static std::vector<std::tuple<double, double, double, double>>
+build_tilesExtent(std::vector<std::string> &files)
+{
+    GDAL_SCOPED_LOCK;
+
+    int nInputFiles = files.size();
+
+    DatasetProperty* psDatasetProperties =
+            (DatasetProperty*) CPLMalloc(nInputFiles*sizeof(DatasetProperty));
+
+    std::vector<std::tuple<double, double, double, double>> tilesExtent;
+
+    for(int i=0;i<nInputFiles;i++)
+    {
+        const char* dsFileName = files[i].c_str();
+
+        GDALTermProgress( 1.0 * (i+1) / nInputFiles, NULL, NULL);
+
+        GDALDatasetH hDS = GDALOpen(dsFileName, GA_ReadOnly );
+        psDatasetProperties[i].isFileOK = FALSE;
+
+        if (hDS)
+        {
+            const char* proj = GDALGetProjectionRef(hDS);
+            if (!proj || strlen(proj) == 0)
+            {
+                std::string prjLocation = osgDB::getNameLessExtension( std::string(dsFileName) ) + std::string(".prj");
+                ReadResult r = URI(prjLocation).readString();
+                if ( r.succeeded() )
+                {
+                    proj = CPLStrdup( r.getString().c_str() );
+                }
+            }
+
+            GDALGetGeoTransform(hDS, psDatasetProperties[i].adfGeoTransform);
+            if (psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_ROTATION_PARAM1] != 0 ||
+                    psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_ROTATION_PARAM2] != 0)
+            {
+                OE_WARN << LC << "GDAL Driver does not support rotated geo transforms. Skipping " << dsFileName << std::endl;
+                GDALClose(hDS);
+                continue;
+            }
+            if (psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_NS_RES] >= 0)
+            {
+                OE_WARN << LC << "GDAL Driver does not support positive NS resolution. Skipping " << dsFileName << std::endl;
+                GDALClose(hDS);
+                continue;
+            }
+            psDatasetProperties[i].nRasterXSize = GDALGetRasterXSize(hDS);
+            psDatasetProperties[i].nRasterYSize = GDALGetRasterYSize(hDS);
+            double product_maxY = psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_TOPLEFT_Y];
+            double product_minY = product_maxY +
+                    GDALGetRasterYSize(hDS) * psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_NS_RES];
+            double product_minX = psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_TOPLEFT_X];
+            double product_maxX = product_minX +
+                        psDatasetProperties[i].nRasterXSize * psDatasetProperties[i].adfGeoTransform[GEOTRSFRM_WE_RES];
+
+            tilesExtent.emplace_back(product_minY, product_maxY, product_minX, product_maxX);
+        }
+    }
+
+    CPLFree(psDatasetProperties);
+
+    return tilesExtent;
 }
 
 
@@ -1146,6 +1186,7 @@ public:
                     //We couldn't get the VRT from the cache, so build it
                     osg::Timer_t startTime = osg::Timer::instance()->tick();
                     _srcDS = (GDALDataset*)build_vrt(files, HIGHEST_RESOLUTION);
+                    _tilesExtent = build_tilesExtent(files);
                     osg::Timer_t endTime = osg::Timer::instance()->tick();
                     OE_INFO << LC << INDENT << "Built VRT in " << osg::Timer::instance()->delta_s(startTime, endTime) << " s" << std::endl;
 
@@ -1582,6 +1623,14 @@ public:
 
         GDALRasterBand* gdalBand = _warpedDS ?_warpedDS->GetRasterBand(band) : NULL;
         return gdalBand ? gdalBand->GetMetadata() : NULL;
+    }
+
+    //! Get the tiles extent (minY, maxY, minX, maxX)
+    std::vector<std::tuple<double, double, double, double>> getTilesExtent () const
+    {
+        GDAL_SCOPED_LOCK;
+
+        return _tilesExtent;
     }
 
     /**
@@ -2618,6 +2667,7 @@ private:
     double       _invtransform[6];
     double       _linearUnits;
 
+    std::vector<std::tuple<double, double, double, double>> _tilesExtent;
     GeoExtent _extents;
     Bounds _bounds;
 

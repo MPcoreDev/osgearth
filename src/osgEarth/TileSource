@@ -251,6 +251,9 @@ namespace osgEarth
         //! Get the metadata for a given band
         virtual char** getBandAllMetaData ( int /**band**/ ) const  { return NULL; }
 
+        //! Get the tiles extent (minY, maxY, minX, maxX)
+        virtual std::vector<std::tuple<double, double, double, double>> getTilesExtent () const  { return {}; }
+
         /**
          * Creates an image for the given TileKey. The TileKey's profile must match
          * the profile of the TileSource.
