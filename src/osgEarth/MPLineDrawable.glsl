@@ -39,8 +39,8 @@ void mp_MPLineDrawable_VS_MODEL(inout vec4 vertex)
     float widthByTwo = mp_LineWidth*0.5;
 
     // check if this vertex is at the opposite side of the globe
-    vec4 earthCenter_view = osg_ModelViewMatrix * vec4(0., 0., 0., 1.);
-    vec3 normal = (osg_ModelViewMatrix*vertex).xyz - earthCenter_view.xyz;
+    vec4 earthCenter_view = gl_ModelViewMatrix * vec4(0., 0., 0., 1.);
+    vec3 normal = (gl_ModelViewMatrix*vertex).xyz - earthCenter_view.xyz;
     mp_MPLineDrawable_backFaceCulled = normal.z < 0. ? 1 : 0;
 
     // compute the length of the side vector
