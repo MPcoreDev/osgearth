@@ -41,6 +41,7 @@ namespace osgEarth
         std::string PointDrawable;
         std::string PhongLightingVertex, PhongLightingFragment;
         std::string TextVertex, TextFragment, TextLegacy;
+        std::string MPLineDrawable;
 	};	
 
 } // namespace osgEarth

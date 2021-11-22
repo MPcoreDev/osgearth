@@ -69,20 +69,12 @@ GLUtils::setLighting(osg::StateSet* stateSet, osg::StateAttribute::OverrideValue
 void
 GLUtils::setLineWidth(osg::StateSet* stateSet, float value, osg::StateAttribute::OverrideValue ov)
 {
-//#ifdef OSG_GL_FIXED_FUNCTION_AVAILABLE
-    stateSet->setAttributeAndModes(new osg::LineWidth(value), ov);
-//#endif
-
     stateSet->addUniform(new osg::Uniform("oe_GL_LineWidth", value), ov);
 }
 
 void
 GLUtils::setLineStipple(osg::StateSet* stateSet, int factor, unsigned short pattern, osg::StateAttribute::OverrideValue ov)
 {
-#ifdef OSG_GL_FIXED_FUNCTION_AVAILABLE
-    stateSet->setAttributeAndModes(new osg::LineStipple(factor, pattern), ov);
-#endif
-
     stateSet->addUniform(new osg::Uniform("oe_GL_LineStippleFactor", (int)factor), ov);
     stateSet->addUniform(new osg::Uniform("oe_GL_LineStipplePattern", (int)pattern), ov);
 }
@@ -90,10 +82,6 @@ GLUtils::setLineStipple(osg::StateSet* stateSet, int factor, unsigned short patt
 void
 GLUtils::setLineSmooth(osg::StateSet* stateSet, osg::StateAttribute::OverrideValue ov)
 {
-#if !(defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE) )
-    stateSet->setMode(GL_LINE_SMOOTH, ov);
-#endif
-
     stateSet->setDefine("OE_LINE_SMOOTH", ov);
 }
 
@@ -111,9 +99,22 @@ GLUtils::setLineMPPatternThreshold(osg::StateSet* stateSet, float value, osg::St
 }
 
 void
+GLUtils::setLineMPPatternParams(osg::StateSet* stateSet, const osg::Vec2& params, osg::StateAttribute::OverrideValue ov)
+{
+    setLineMPPatternAlpha(stateSet, params.x(), ov);
+    setLineMPPatternThreshold(stateSet, params.y(), ov);
+}
+
+void
 GLUtils::setLineMPPattern(osg::StateSet* stateSet, osg::StateAttribute::OverrideValue ov)
 {
     stateSet->setDefine("MP_PATTERN", ov);
+}
+
+void
+GLUtils::removeLineMPPattern(osg::StateSet* stateSet)
+{
+    stateSet->removeDefine("MP_PATTERN");
 }
 
 void

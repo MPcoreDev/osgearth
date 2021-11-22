@@ -58,6 +58,8 @@ set(TARGET_GLSL
     Text.vert.glsl
     Text.frag.glsl
     Text_legacy.glsl
+
+    MPLineDrawable.glsl
     )
 
 set(SHADERS_CPP "${CMAKE_CURRENT_BINARY_DIR}/AutoGenShaders.cpp")
@@ -230,6 +232,7 @@ SET(LIB_PUBLIC_HEADERS
     RasterToModelLayer
     RasterToModelSource
     RasterToModelGraph
+    MPLineDrawable
 )
 
 
@@ -405,6 +408,7 @@ set(TARGET_SRC
     RasterToModelLayer.cpp
     RasterToModelSource.cpp
     RasterToModelGraph.cpp
+    MPLineDrawable.cpp
 	
     ${SHADERS_CPP} )
 

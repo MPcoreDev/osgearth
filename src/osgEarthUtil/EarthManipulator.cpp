@@ -1375,7 +1375,26 @@ bool EarthManipulator::handle(const osgGA::GUIEventAdapter &ea,
   _time_s_now = view->getFrameStamp()->getReferenceTime();
 
   if (ea.getEventType() == osgGA::GUIEventAdapter::FRAME) {
-    view->getCamera()->setUserValue("altitude", _distance);
+
+      // make available to the scenegraph some camera information
+      if (view->getCamera() && view->getCamera()->getViewport())
+      {
+          // distance to the viewpoint
+          view->getCamera()->setUserValue("altitude", _distance);
+
+          // compute the ratio between pixel scale and world scale
+          double wScreen = -_distance * tan(0.5 * osg::DegreesToRadians(_lastKnownVFOV));
+          float factor = wScreen * 2. / view->getCamera()->getViewport()->height();
+          osg::StateSet* ss = view->getCamera()->getOrCreateStateSet();
+          osg::Uniform* u = ss->getUniform("mp_local2pixel");
+          if (!u)
+          {
+              u = new osg::Uniform(osg::Uniform::FLOAT, "mp_local2pixel");
+              ss->addUniform(u, osg::StateAttribute::ON);
+          }
+          u->set(factor);
+      }
+
     if (_node.valid()) {
       // Update the mapnode reference frame. This is the transformation
       // between the Camera and the MapNode. Since all computations are done
