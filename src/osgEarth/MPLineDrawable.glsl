@@ -6,7 +6,6 @@ $GLSL_DEFAULT_PRECISION_FLOAT
 #pragma vp_location vertex_model
 #pragma vp_order last
 
-uniform mat4 osg_ModelViewMatrix;
 
 // Ratio between the local sclae and the pixel scale
 uniform float mp_local2pixel;
@@ -22,6 +21,9 @@ in vec2 mp_MPLineDrawable_length;
 
 // The interpolated length
 out vec2 _length;
+
+// Wether this vertex is at the opposite side of the globe
+flat out int mp_MPLineDrawable_backFaceCulled;
 
 // MissionPlus line pattern with one part plain fill and one part with alpha
 uniform float oe_MPPatternThreshold; // percentage of plain line vs the whole line width
@@ -39,7 +41,7 @@ void mp_MPLineDrawable_VS_MODEL(inout vec4 vertex)
     // check if this vertex is at the opposite side of the globe
     vec4 earthCenter_view = osg_ModelViewMatrix * vec4(0., 0., 0., 1.);
     vec3 normal = (osg_ModelViewMatrix*vertex).xyz - earthCenter_view.xyz;
-    int mp_MPLineDrawable_backFaceCulled = normal.z < 0. ? 1 : 0;
+    mp_MPLineDrawable_backFaceCulled = normal.z < 0. ? 1 : 0;
 
     // compute the length of the side vector
     if (mp_MPLineDrawable_backFaceCulled == 0)
@@ -130,7 +132,7 @@ void mp_MPLineDrawable_FS(inout vec4 color)
         // handle the plain & transparent pattern
         if (oe_MPPatternThreshold > 0.)
         {
-            float alpha = _length.y > 0. ? oe_MPPatternAlpha : 0;
+            float alpha = _length.y > 0. ? oe_MPPatternAlpha : 0.;
             float threshold = mp_LineWidth * oe_MPPatternThreshold;
 
             // anti-aliasing on inner separation between plain and transparent line
