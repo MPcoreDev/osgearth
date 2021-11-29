@@ -2173,7 +2173,9 @@ void EarthManipulator::recalculateCenter(const osg::CoordinateFrame &frame) {
 
 void EarthManipulator::pan(double dx, double dy) {
   if (!isTethering()) {
-    // D-33867 Avoid recalculateCenterFromLookVector to prevent abrupt zoom discontinuities
+    // to pan, we need a focus point on the terrain:
+    if (!recalculateCenterFromLookVector())
+      return;
 
     double scale = -0.3f * _distance;
 
@@ -2295,7 +2297,10 @@ void EarthManipulator::rotate(double dx, double dy) {
 }
 
 void EarthManipulator::zoom(double dx, double dy) {
-  // D-33867 Avoid recalculateCenterFromLookVector to prevent abrupt zoom discontinuities
+  // in normal (non-tethered mode) we need a valid zoom point.
+  if (!isTethering()) {
+    recalculateCenterFromLookVector();
+  }
 
   double scale = 1.0f + dy;
   setDistance(_distance * scale);
