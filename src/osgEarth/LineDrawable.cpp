@@ -784,7 +784,6 @@ LineDrawable::setVertex(unsigned vi, const osg::Vec3& vert)
         setDataVariance(DYNAMIC);
     }
 
-    unsigned size = _current->size();
     unsigned numVerts = getNumVerts();
     
     // "vi" = virtual index, "ri" = real index.
@@ -877,8 +876,8 @@ LineDrawable::setVertex(unsigned vi, const osg::Vec3& vert)
                 }
                 else 
                 {
-                    unsigned rni = vi==0u? numVerts-4u : ri-4u;
-                    unsigned rpi = vi==numVerts-1u ? 0u : ri+4u;
+                    unsigned rni = vi == 0u ? (numVerts - 1u) * 4u : ri - 4u;
+                    unsigned rpi = vi == numVerts - 1u ? 0u : ri + 4u;
 
                     for(unsigned n=0; n<rnum; ++n)
                     {
@@ -1096,11 +1095,9 @@ namespace
     osg::DrawElements* makeDE(unsigned size)
     {
         osg::DrawElements* de =
-#ifndef OE_GLES_AVAILABLE
             size > 0xFFFF ? (osg::DrawElements*)new osg::DrawElementsUInt(GL_TRIANGLES) :
-#endif
-            size > 0xFF ?   (osg::DrawElements*)new osg::DrawElementsUShort(GL_TRIANGLES) :
-                            (osg::DrawElements*)new osg::DrawElementsUByte(GL_TRIANGLES);
+                size > 0xFF ?   (osg::DrawElements*)new osg::DrawElementsUShort(GL_TRIANGLES) :
+                                (osg::DrawElements*)new osg::DrawElementsUByte(GL_TRIANGLES);
         de->reserveElements(size);
         return de;
     }
@@ -1256,10 +1253,10 @@ void
 LineDrawable::accept(osg::NodeVisitor& nv)
 {
     if (nv.validNodeMask(*this))
-    { 
+    {
         // Only push the shader if necessary.
-        // The reason for this approach is go we can inject the singleton 
-        // LineDrawable shader yet still allow the user to customize 
+        // The reason for this approach is go we can inject the singleton
+        // LineDrawable shader yet still allow the user to customize
         // the node's StateSet.
         bool shade =
             _gpu &&
@@ -1273,7 +1270,7 @@ LineDrawable::accept(osg::NodeVisitor& nv)
         if (cv)
             cv->pushStateSet(_gpuStateSet.get());
 
-        nv.apply(*this); 
+        nv.apply(*this);
 
         if (cv)
             cv->popStateSet();

@@ -52,8 +52,12 @@ namespace osgEarth
         //! Configure MissionPlus pattern threshold
         static void setLineMPPatternThreshold(osg::StateSet* stateSet, float value, osg::StateAttribute::OverrideValue ov);
 
+        //! Configure MissionPlus pattern parameters all at once
+        static void setLineMPPatternParams(osg::StateSet* stateSet, const osg::Vec2& params, osg::StateAttribute::OverrideValue ov);
+
         //! Enable or disable MissionPlus pattern
         static void setLineMPPattern(osg::StateSet* stateSet, osg::StateAttribute::OverrideValue ov);
+        static void removeLineMPPattern(osg::StateSet* stateSet);
 
         //! Configure point rendering size (GL_POINT_SIZE)
         static void setPointSize(osg::StateSet* stateSet, float value, osg::StateAttribute::OverrideValue ov);

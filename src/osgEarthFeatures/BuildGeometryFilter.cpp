@@ -49,9 +49,15 @@
 #include <osg/Version>
 #include <iterator>
 
+#include <osgEarth/MPLineDrawable>
+
+
 #define LC "[BuildGeometryFilter] "
 
 #define OE_TEST OE_NULL
+
+#define USE_MP_LINE_DRAWABLE 1
+
 
 using namespace osgEarth;
 using namespace osgEarth::Features;
@@ -467,7 +473,11 @@ osg::Group*
 BuildGeometryFilter::processLines(FeatureList& features, FilterContext& context)
 {
     // Group to contain all the lines we create here
+#ifdef USE_MP_LINE_DRAWABLE
+    MPLineGroup* drawables = new MPLineGroup();
+#else
     LineGroup* drawables = new LineGroup();
+#endif
 
     bool makeECEF = false;
     const SpatialReference* featureSRS = 0L;
@@ -527,11 +537,18 @@ BuildGeometryFilter::processLines(FeatureList& features, FilterContext& context)
             osg::ref_ptr< osg::Vec3Array > allPoints = new osg::Vec3Array();
             transformAndLocalize( part->asVector(), featureSRS, allPoints.get(), outputSRS, _world2local, makeECEF );
 
-            bool gpu = !line->stroke().isSet() || line->stroke()->gpu().get();
             // construct a drawable for the lines
+#ifdef USE_MP_LINE_DRAWABLE
+            MPLineDrawable* drawable = new MPLineDrawable(static_cast<GLenum>((isRing? GL_LINE_LOOP : GL_LINE_STRIP)));
+            drawable->setTransformationMatrices(_world2local, _local2world);
+            if (minSegmentLengthM().isSet())
+                drawable->minimumSegmentLength() = *minSegmentLengthM();
+#else
+            bool gpu = !line->stroke().isSet() || line->stroke()->gpu().get();
             LineDrawable* drawable = new LineDrawable(static_cast<GLenum>((isRing? GL_LINE_LOOP : GL_LINE_STRIP)), gpu);
-            drawable->setBindColorOverall(_bindColorOverall.isSetTo(true));
+#endif
 
+            drawable->setBindColorOverall(_bindColorOverall.isSetTo(true));
             drawable->importVertexArray(allPoints.get());
 
             if (line->stroke().isSet())
@@ -545,12 +562,13 @@ BuildGeometryFilter::processLines(FeatureList& features, FilterContext& context)
                 if (line->stroke()->stippleFactor().isSet())
                     drawable->setStippleFactor(line->stroke()->stippleFactor().get());
 
-                if (line->stroke()->smooth().isSet())
-                    drawable->setLineSmooth(line->stroke()->smooth().get());
-
                 if (line->stroke()->mpPatternAlpha().isSet() && line->stroke()->mpPatternThreshold().isSet())
                     drawable->setMPPatternParams(line->stroke()->mpPatternAlpha().get(), line->stroke()->mpPatternThreshold().get());
             }
+
+#ifndef USE_MP_LINE_DRAWABLE
+            if (line->stroke()->smooth().isSet())
+                drawable->setLineSmooth(line->stroke()->smooth().get());
 
             // For GPU clamping, we need an attribute array with Heights above Terrain in it.
             if (doGpuClamping)
@@ -564,6 +582,7 @@ BuildGeometryFilter::processLines(FeatureList& features, FilterContext& context)
                     drawable->pushVertexAttrib(hats, i->z());
                 }
             }
+#endif
 
             // assign the color:
             drawable->setColor(primaryColor);

@@ -1,0 +1,190 @@
+/* -*-c++-*- */
+/* osgEarth - Geospatial SDK for OpenSceneGraph
+ * Copyright 2019 Pelican Mapping
+ * http://osgearth.org
+ *
+ * osgEarth is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>
+ */
+#ifndef OSGEARTH_MPLINEDRAWABLE_H
+#define OSGEARTH_MPLINEDRAWABLE_H 1
+
+#include <osgEarth/Common>
+#include <osgEarth/optional>
+#include <osg/Array>
+#include <osg/Geometry>
+#include <osg/Version>
+#include <osg/Geode>
+
+namespace osgEarth
+{
+    /**
+     * Drawable that renders lines using the GPU.
+     */
+    class OSGEARTH_EXPORT MPLineDrawable : public osg::Geometry
+    {
+    public:
+
+        static const std::string UNIFORM_HIGHLIGHT_COLOR;
+
+    public:
+
+        //! Create new MPLineDrawable in GL_LINE_STRIP mode
+        explicit MPLineDrawable();
+
+        //! Create a new LineDrawable.
+        //! @param[in ] mode GL line mode: GL_LINE_STRIP or GL_LINE_LOOP
+        explicit MPLineDrawable(GLenum mode);
+
+        //! Copy constructor
+        MPLineDrawable(const MPLineDrawable& rhs, const osg::CopyOp& copy);
+
+        //! Width in pixels of the line
+        void setLineWidth(float width_pixels);
+        float getLineWidth() const { return _width; }
+
+        //! Stippling pattern for the line (default is 0xFFFF)
+        void setStipplePattern(GLushort pattern);
+        GLushort getStipplePattern() const { return _pattern; }
+
+        //! Stippling factor for the line (default is 1)
+        void setStippleFactor(GLint factor);
+        GLint getStippleFactor() const { return _factor; }
+
+        //! Sets and enables MissionPlus line pattern.
+        //! has a plain part and blurred part
+        //! blur set to the passed alpha
+        //! proportion plain/blurred set with threshold (value between 0 and 1, 1 for a normal plain line)
+        void setMPPatternParams(float alpha, float threshold);
+
+        //! Sets the overall color of the line
+        void setColor(const osg::Vec4& color);
+        const osg::Vec4& getColor() const { return _color; }
+
+        //! Copy a vertex array into the drawable
+        void importVertexArray(osg::Vec3Array *verts);
+
+        //! Rebuild the primitive sets for this drawable. You MUST call this
+        //! after adding new data to the drawable!
+        void dirty();
+
+        //! Whether to use a OVERALL technique for color binding
+        //! The property must be set just after the contructor to be taken into account
+        void setBindColorOverall(bool bindColorOverall);
+        bool getBindColorOverall() const { return _bindColorOverall; }
+
+        //! Coordinate localization matrices
+        void setTransformationMatrices(const osg::Matrixd& world2local, const osg::Matrixd& local2world);
+
+        /**
+         * Remove geometry points if they are closer than this provided length
+         */
+        optional<double>& minimumSegmentLength() { return _minimumSegmentLength; }
+        const optional<double>& minimumSegmentLength() const { return _minimumSegmentLength; }
+
+    public: // osg::Node
+
+        //! Replace methods from META_Node so we can override accept
+        virtual osg::Object* cloneType() const { return new MPLineDrawable(); }
+        virtual osg::Object* clone(const osg::CopyOp& copyop) const { return new MPLineDrawable(*this,copyop); }
+        virtual bool isSameKindAs(const osg::Object* obj) const { return dynamic_cast<const MPLineDrawable*>(obj)!=NULL; }
+        virtual const char* className() const { return "MPLineDrawable"; }
+        virtual const char* libraryName() const { return "osgEarth"; }
+
+        //! Override Node::accept to include the singleton GPU statset
+        virtual void accept(osg::NodeVisitor& nv);
+
+    public: // osg::Object
+
+        virtual void resizeGLObjectBuffers(unsigned maxSize);
+        virtual void releaseGLObjects(osg::State* state) const;
+
+    public:
+            
+        //! For serializer only; do not use
+
+        void setMode(GLenum mode);
+        GLenum getMode() const { return _mode; }
+
+        void setMPPatternParams(const osg::Vec2f& mpPattern);
+        const osg::Vec2f& getMPPatternParams() const { return _mpPatternParams; }
+
+    protected:
+
+        //! destructor
+        virtual ~MPLineDrawable();
+
+    private:
+        GLenum _mode;
+        osg::Vec4 _color;
+        bool _bindColorOverall;
+        GLint _factor;
+        GLushort _pattern;
+        float _width;
+        osg::Vec2 _mpPatternParams;
+        osg::Vec3Array* _current;
+        osg::Vec3Array* _side;
+        osg::Vec2Array* _length;
+        osg::Vec4Array* _colors;
+        optional<double> _minimumSegmentLength;
+
+        void initialize();
+        void setupShaders();
+        void appendQuad(osg::DrawElements* els, unsigned iA, unsigned iB, unsigned iC, unsigned iD);
+
+        friend class MPLineGroup;
+
+        static osg::observer_ptr<osg::StateSet> s_gpuStateSet;
+        osg::ref_ptr<osg::StateSet> _gpuStateSet;
+
+        osg::Matrixd _world2local, _local2world;   // for coordinate localization
+        osg::Vec3 _earthCenterLocal;
+
+        static const int SideVectorAttrLocation;
+        static const int LengthAttrLocation;
+    };
+
+
+    /**
+     * Group for importing MPLineDrawables from osg::Geometry or for
+     * optimizing multiple MPLineDrawables for performance.
+     *
+     * Note: LMPineGroup inherits from Geode (for now) to maintain support for
+     * the OSG 3.4 MergeGeometryVisitor (which only works on Geodes). Once we
+     * make OSG 3.6 the minimum supported version, we can change this to Group.
+     */
+    class OSGEARTH_EXPORT MPLineGroup : public osg::Geode
+    {
+    public:
+        META_Node(osgEarth, MPLineGroup);
+
+        //! Construct a new line group
+        MPLineGroup();
+
+        //! Copy constructor
+        MPLineGroup(const MPLineGroup& rhs, const osg::CopyOp& copy);
+
+        //! Optimize the LineDrawables under this group for performance.
+        //! Only call this after you finish adding drawables to your group.
+        //! It will attempt to combine drawables (if requested) and state sets,
+        //! but it will also render the graph henceforth immutable.
+        void optimize( bool mergeGeometries = true );
+
+    protected:
+        //! destructor
+        virtual ~MPLineGroup();
+    };
+
+} // namespace osgEarth
+
+#endif // OSGEARTH_MPLINEDRAWABLE_H

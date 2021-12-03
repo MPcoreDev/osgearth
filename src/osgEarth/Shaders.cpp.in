@@ -66,5 +66,10 @@ namespace osgEarth
 
         TextLegacy = "Text_legacy.glsl";
         _sources[TextLegacy] = "@Text_legacy.glsl@";
+
+        // MPLineDrawable
+        MPLineDrawable = "MPLineDrawable.glsl";
+        _sources[MPLineDrawable] = "@MPLineDrawable.glsl@";
+
     }
 };

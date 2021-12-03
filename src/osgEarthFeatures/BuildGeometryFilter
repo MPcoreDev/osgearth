@@ -114,6 +114,11 @@ namespace osgEarth { namespace Features
         optional<bool>& noNormals() { return _noNormals; }
         const optional<bool>& noNormals() const { return _noNormals; }
 
+        /**
+         * Remove geometry points if they are closer than this provided length
+         */
+        optional<double>& minSegmentLengthM() { return _minSegmentLengthM; }
+        const optional<double>& minSegmentLengthM() const { return _minSegmentLengthM; }
 
     protected:
         Style                      _style;
@@ -128,6 +133,7 @@ namespace osgEarth { namespace Features
         optional<ShaderPolicy>     _shaderPolicy;
         optional<bool>             _bindColorOverall;
         optional<bool>             _noNormals;
+        optional<double>           _minSegmentLengthM;
         
         void tileAndBuildPolygon(
             Geometry*               input,
