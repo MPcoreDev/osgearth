@@ -1094,12 +1094,10 @@ namespace
 {
     osg::DrawElements* makeDE(unsigned size)
     {
-        osg::DrawElements* de = (osg::DrawElements*)new osg::DrawElementsUInt(GL_TRIANGLES);
-#ifndef OE_GLES_AVAILABLE
+        osg::DrawElements* de =
             size > 0xFFFF ? (osg::DrawElements*)new osg::DrawElementsUInt(GL_TRIANGLES) :
-#endif
-            size > 0xFF ?   (osg::DrawElements*)new osg::DrawElementsUShort(GL_TRIANGLES) :
-                            (osg::DrawElements*)new osg::DrawElementsUByte(GL_TRIANGLES);
+                size > 0xFF ?   (osg::DrawElements*)new osg::DrawElementsUShort(GL_TRIANGLES) :
+                                (osg::DrawElements*)new osg::DrawElementsUByte(GL_TRIANGLES);
         de->reserveElements(size);
         return de;
     }
