@@ -541,6 +541,8 @@ BuildGeometryFilter::processLines(FeatureList& features, FilterContext& context)
 #ifdef USE_MP_LINE_DRAWABLE
             MPLineDrawable* drawable = new MPLineDrawable(static_cast<GLenum>((isRing? GL_LINE_LOOP : GL_LINE_STRIP)));
             drawable->setTransformationMatrices(_world2local, _local2world);
+            if (minSegmentLengthM().isSet())
+                drawable->minimumSegmentLength() = *minSegmentLengthM();
 #else
             bool gpu = !line->stroke().isSet() || line->stroke()->gpu().get();
             LineDrawable* drawable = new LineDrawable(static_cast<GLenum>((isRing? GL_LINE_LOOP : GL_LINE_STRIP)), gpu);

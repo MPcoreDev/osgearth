@@ -123,6 +123,7 @@ GeometryCompilerOptions::fromConfig( const Config& conf )
     conf.get( "use_gpu_screen_space_lines", _useGPULines );
     conf.get( "bind_color_overall", _bindColorOverall );
     conf.get( "no_normals", _noNormals );
+    conf.get( "min_segment_length_m", _minSegmentLengthM );
 
     conf.get( "shader_policy", "disable",  _shaderPolicy, SHADERPOLICY_DISABLE );
     conf.get( "shader_policy", "inherit",  _shaderPolicy, SHADERPOLICY_INHERIT );
@@ -149,6 +150,7 @@ GeometryCompilerOptions::getConfig() const
     conf.set( "use_gpu_screen_space_lines", _useGPULines );
     conf.set( "bind_color_overall", _bindColorOverall );
     conf.set( "no_normals", _noNormals );
+    conf.set( "min_segment_length_m", _minSegmentLengthM );
 
     conf.set( "shader_policy", "disable",  _shaderPolicy, SHADERPOLICY_DISABLE );
     conf.set( "shader_policy", "inherit",  _shaderPolicy, SHADERPOLICY_INHERIT );
@@ -455,7 +457,7 @@ GeometryCompiler::compile(FeatureList&          workingSet,
         if (_options.maxPolygonTilingAngle().isSet())
             filter.maxPolygonTilingAngle() = *_options.maxPolygonTilingAngle();
 
-        if ( _options.featureName().isSet() )
+        if (_options.featureName().isSet())
             filter.featureName() = *_options.featureName();
 
         if (_options.optimizeVertexOrdering().isSet())
@@ -469,6 +471,9 @@ GeometryCompiler::compile(FeatureList&          workingSet,
 
         if (_options.noNormals().isSet())
             filter.noNormals() = *_options.noNormals();
+
+        if (_options.minSegmentLengthM().isSet())
+            filter.minSegmentLengthM() = *_options.minSegmentLengthM();
 
         osg::Node* node = filter.push( workingSet, sharedCX );
         if ( node )

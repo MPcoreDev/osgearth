@@ -334,6 +334,25 @@ MPLineDrawable::importVertexArray(osg::Vec3Array* verts)
 
     if (verts && verts->size() > 1)
     {
+        // Remove too closed points if required
+        if (_minimumSegmentLength.isSet())
+        {
+            double minLength2 = (*_minimumSegmentLength) * (*_minimumSegmentLength);
+            osg::Vec3 v = *verts->begin();
+            for (osg::Vec3Array::iterator itr = verts->begin(); itr != verts->end(); )
+            {
+                if (itr != verts->begin() && (v - *itr).length2() < minLength2)
+                {
+                    itr = verts->erase(itr);
+                }
+                else
+                {
+                    v = *itr;
+                    itr++;
+                }
+            }
+        }
+
         // Pre allocate the arrays
         unsigned actualSize = loopMode ? (verts->size()+1u)*2u : verts->size()*2u;
         if (actualSize > _current->size())
@@ -350,7 +369,16 @@ MPLineDrawable::importVertexArray(osg::Vec3Array* verts)
         prevDirection.normalize();
 
         // Add a fake point vertex at the end to compute the right last side vector orientation
-        verts->push_back( loopMode ? (*verts).front() : (*verts).back()*2. - (*verts)[verts->size()-2]);
+        if (loopMode)
+        {
+            // Check that the loop is not already closed in the data
+            if ((*verts).front() != (*verts).back())
+                verts->push_back( (*verts).front() );
+        }
+        else
+        {
+            verts->push_back( (*verts).back()*2. - (*verts)[verts->size()-2] );
+        }
 
         // The reference side vector length
         const double ref = 1.;
@@ -371,7 +399,7 @@ MPLineDrawable::importVertexArray(osg::Vec3Array* verts)
             normal.normalize();
             osg::Vec3d side    = tangent ^ normal;
             side.normalize();
-            double mitter = fabs(prevDirection * tangent);
+            double mitter = prevDirection * tangent;
             mitter = mitter == 0. ? ref : ref / mitter;
             if (mitter > 2.*ref) mitter = 2.*ref;
 

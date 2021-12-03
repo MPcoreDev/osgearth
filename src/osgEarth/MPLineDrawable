@@ -20,6 +20,7 @@
 #define OSGEARTH_MPLINEDRAWABLE_H 1
 
 #include <osgEarth/Common>
+#include <osgEarth/optional>
 #include <osg/Array>
 #include <osg/Geometry>
 #include <osg/Version>
@@ -85,6 +86,12 @@ namespace osgEarth
         //! Coordinate localization matrices
         void setTransformationMatrices(const osg::Matrixd& world2local, const osg::Matrixd& local2world);
 
+        /**
+         * Remove geometry points if they are closer than this provided length
+         */
+        optional<double>& minimumSegmentLength() { return _minimumSegmentLength; }
+        const optional<double>& minimumSegmentLength() const { return _minimumSegmentLength; }
+
     public: // osg::Node
 
         //! Replace methods from META_Node so we can override accept
@@ -129,6 +136,7 @@ namespace osgEarth
         osg::Vec3Array* _side;
         osg::Vec2Array* _length;
         osg::Vec4Array* _colors;
+        optional<double> _minimumSegmentLength;
 
         void initialize();
         void setupShaders();
