@@ -74,13 +74,13 @@ namespace
 }
 
 
-MPLineGroup::MPLineGroup()
+MPLineGroup::MPLineGroup() : LineGroup()
 {
     //nop
 }
 
 MPLineGroup::MPLineGroup(const MPLineGroup& rhs, const osg::CopyOp& copy) :
-osg::Geode(rhs, copy)
+LineGroup(rhs, copy)
 {
     //nop
 }
@@ -88,28 +88,6 @@ osg::Geode(rhs, copy)
 MPLineGroup::~MPLineGroup()
 {
     //nop
-}
-
-
-void
-MPLineGroup::optimize( bool mergeGeometries )
-{
-    // Optimize state sharing so the MergeGeometryVisitor can work better.
-    // Without this step, the #defines used for width and stippling will
-    // hold up the merge.
-    osg::ref_ptr<StateSetCache> cache = new StateSetCache();
-    cache->optimize(this);
-
-    // Merge all non-dynamic drawables to reduce the total number of 
-    // OpenGL calls.
-    // Note that it is not always a performance win as it also prevents
-    // from having an efficient culling
-    if ( mergeGeometries )
-    {
-        osgUtil::Optimizer::MergeGeometryVisitor mg;
-        mg.setTargetMaximumNumberOfVertices(65536);
-        accept(mg);
-    }
 }
 
 

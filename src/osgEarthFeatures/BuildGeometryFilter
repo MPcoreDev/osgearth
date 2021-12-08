@@ -120,6 +120,10 @@ namespace osgEarth { namespace Features
         optional<double>& minSegmentLengthM() { return _minSegmentLengthM; }
         const optional<double>& minSegmentLengthM() const { return _minSegmentLengthM; }
 
+        /** Whether to use the new line implementation */
+        optional<bool>& useMPLines() { return _useMPLines; }
+        const optional<bool>& useMPLines() const { return _useMPLines; }
+
     protected:
         Style                      _style;
 
@@ -134,6 +138,7 @@ namespace osgEarth { namespace Features
         optional<bool>             _bindColorOverall;
         optional<bool>             _noNormals;
         optional<double>           _minSegmentLengthM;
+        optional<bool>             _useMPLines;
         
         void tileAndBuildPolygon(
             Geometry*               input,

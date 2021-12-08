@@ -473,11 +473,7 @@ osg::Group*
 BuildGeometryFilter::processLines(FeatureList& features, FilterContext& context)
 {
     // Group to contain all the lines we create here
-#ifdef USE_MP_LINE_DRAWABLE
-    MPLineGroup* drawables = new MPLineGroup();
-#else
-    LineGroup* drawables = new LineGroup();
-#endif
+    LineGroup* drawables = _useMPLines.isSetTo(true) ? new MPLineGroup() : new LineGroup();
 
     bool makeECEF = false;
     const SpatialReference* featureSRS = 0L;
@@ -536,56 +532,110 @@ BuildGeometryFilter::processLines(FeatureList& features, FilterContext& context)
             // generate the geometry and localize to the local tangent plane
             osg::ref_ptr< osg::Vec3Array > allPoints = new osg::Vec3Array();
             transformAndLocalize( part->asVector(), featureSRS, allPoints.get(), outputSRS, _world2local, makeECEF );
+            osg::Geometry* drawable = nullptr;
 
-            // construct a drawable for the lines
-#ifdef USE_MP_LINE_DRAWABLE
-            MPLineDrawable* drawable = new MPLineDrawable(static_cast<GLenum>((isRing? GL_LINE_LOOP : GL_LINE_STRIP)));
-            drawable->setTransformationMatrices(_world2local, _local2world);
-            if (minSegmentLengthM().isSet())
-                drawable->minimumSegmentLength() = *minSegmentLengthM();
-#else
-            bool gpu = !line->stroke().isSet() || line->stroke()->gpu().get();
-            LineDrawable* drawable = new LineDrawable(static_cast<GLenum>((isRing? GL_LINE_LOOP : GL_LINE_STRIP)), gpu);
-#endif
-
-            drawable->setBindColorOverall(_bindColorOverall.isSetTo(true));
-            drawable->importVertexArray(allPoints.get());
-
-            if (line->stroke().isSet())
+            // build a osgearth LineDrawable
+            if (! _useMPLines.isSetTo(true))
             {
-                if (line->stroke()->width().isSet())
-                    drawable->setLineWidth(line->stroke()->width().get());
+                // construct a drawable for the lines
+                bool gpu = !line->stroke().isSet() || line->stroke()->gpu().get();
+                LineDrawable* lineDrawable = new LineDrawable(static_cast<GLenum>((isRing? GL_LINE_LOOP : GL_LINE_STRIP)), gpu);
 
-                if (line->stroke()->stipplePattern().isSet())
-                    drawable->setStipplePattern(line->stroke()->stipplePattern().get());
+                lineDrawable->setBindColorOverall(_bindColorOverall.isSetTo(true));
+                lineDrawable->importVertexArray(allPoints.get());
 
-                if (line->stroke()->stippleFactor().isSet())
-                    drawable->setStippleFactor(line->stroke()->stippleFactor().get());
-
-                if (line->stroke()->mpPatternAlpha().isSet() && line->stroke()->mpPatternThreshold().isSet())
-                    drawable->setMPPatternParams(line->stroke()->mpPatternAlpha().get(), line->stroke()->mpPatternThreshold().get());
-            }
-
-#ifndef USE_MP_LINE_DRAWABLE
-            if (line->stroke()->smooth().isSet())
-                drawable->setLineSmooth(line->stroke()->smooth().get());
-
-            // For GPU clamping, we need an attribute array with Heights above Terrain in it.
-            if (doGpuClamping)
-            {
-                osg::FloatArray* hats = new osg::FloatArray();
-                hats->setBinding(osg::Array::BIND_PER_VERTEX);
-                hats->setNormalize(false);
-                drawable->setVertexAttribArray(Clamping::HeightsAttrLocation, hats);
-                for (Geometry::const_iterator i = part->begin(); i != part->end(); ++i)
+                if (line->stroke().isSet())
                 {
-                    drawable->pushVertexAttrib(hats, i->z());
-                }
-            }
-#endif
+                    if (line->stroke()->width().isSet())
+                        lineDrawable->setLineWidth(line->stroke()->width().get());
 
-            // assign the color:
-            drawable->setColor(primaryColor);
+                    if (line->stroke()->stipplePattern().isSet())
+                        lineDrawable->setStipplePattern(line->stroke()->stipplePattern().get());
+
+                    if (line->stroke()->stippleFactor().isSet())
+                        lineDrawable->setStippleFactor(line->stroke()->stippleFactor().get());
+
+                    if (line->stroke()->mpPatternAlpha().isSet() && line->stroke()->mpPatternThreshold().isSet())
+                        lineDrawable->setMPPatternParams(line->stroke()->mpPatternAlpha().get(), line->stroke()->mpPatternThreshold().get());
+
+                    if (line->stroke()->smooth().isSet())
+                        lineDrawable->setLineSmooth(line->stroke()->smooth().get());
+                }
+
+                // For GPU clamping, we need an attribute array with Heights above Terrain in it.
+                if (doGpuClamping)
+                {
+                    osg::FloatArray* hats = new osg::FloatArray();
+                    hats->setBinding(osg::Array::BIND_PER_VERTEX);
+                    hats->setNormalize(false);
+                    drawable->setVertexAttribArray(Clamping::HeightsAttrLocation, hats);
+                    for (Geometry::const_iterator i = part->begin(); i != part->end(); ++i)
+                    {
+                        lineDrawable->pushVertexAttrib(hats, i->z());
+                    }
+                }
+
+                // assign the color:
+                lineDrawable->setColor(primaryColor);
+
+                // embed the feature name if requested. Warning: blocks geometry merge optimization!
+                if ( _featureNameExpr.isSet() )
+                {
+                    const std::string& name = input->eval( _featureNameExpr.mutable_value(), &context );
+                    lineDrawable->setName( name );
+                }
+
+                // install clamping attributes if necessary
+                if (doGpuClamping)
+                {
+                    Clamping::applyDefaultClampingAttrs( lineDrawable, input->getDouble("__oe_verticalOffset", 0.0) );
+                }
+
+                // finalize the drawable and generate primitive sets
+                lineDrawable->dirty();
+                drawable = lineDrawable;
+            }
+
+            // build a Mission+ MPLineDrawable
+            else
+            {
+                // construct a drawable for the lines
+                MPLineDrawable* lineDrawable = new MPLineDrawable(static_cast<GLenum>((isRing? GL_LINE_LOOP : GL_LINE_STRIP)));
+                lineDrawable->setTransformationMatrices(_world2local, _local2world);
+                if (minSegmentLengthM().isSet())
+                    lineDrawable->minimumSegmentLength() = *minSegmentLengthM();
+
+                lineDrawable->setBindColorOverall(_bindColorOverall.isSetTo(true));
+                lineDrawable->importVertexArray(allPoints.get());
+
+                if (line->stroke().isSet())
+                {
+                    if (line->stroke()->width().isSet())
+                        lineDrawable->setLineWidth(line->stroke()->width().get());
+
+                    if (line->stroke()->stipplePattern().isSet())
+                        lineDrawable->setStipplePattern(line->stroke()->stipplePattern().get());
+
+                    if (line->stroke()->stippleFactor().isSet())
+                        lineDrawable->setStippleFactor(line->stroke()->stippleFactor().get());
+
+                    if (line->stroke()->mpPatternAlpha().isSet() && line->stroke()->mpPatternThreshold().isSet())
+                        lineDrawable->setMPPatternParams(line->stroke()->mpPatternAlpha().get(), line->stroke()->mpPatternThreshold().get());
+                }
+
+                // assign the color:
+                lineDrawable->setColor(primaryColor);
+
+                // install clamping attributes if necessary
+                if (doGpuClamping)
+                {
+                    Clamping::applyDefaultClampingAttrs( lineDrawable, input->getDouble("__oe_verticalOffset", 0.0) );
+                }
+
+                // finalize the drawable and generate primitive sets
+                lineDrawable->dirty();
+                drawable = lineDrawable;
+            }
 
             // embed the feature name if requested. Warning: blocks geometry merge optimization!
             if ( _featureNameExpr.isSet() )
@@ -599,15 +649,6 @@ BuildGeometryFilter::processLines(FeatureList& features, FilterContext& context)
             {
                 context.featureIndex()->tagDrawable( drawable, input );
             }
-
-            // install clamping attributes if necessary
-            if (doGpuClamping)
-            {
-                Clamping::applyDefaultClampingAttrs( drawable, input->getDouble("__oe_verticalOffset", 0.0) );
-            }
-
-            // finalize the drawable and generate primitive sets
-            drawable->dirty();
 
             drawables->addChild(drawable);
         }
