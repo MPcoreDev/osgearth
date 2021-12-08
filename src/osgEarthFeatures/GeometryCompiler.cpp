@@ -124,6 +124,7 @@ GeometryCompilerOptions::fromConfig( const Config& conf )
     conf.get( "bind_color_overall", _bindColorOverall );
     conf.get( "no_normals", _noNormals );
     conf.get( "min_segment_length_m", _minSegmentLengthM );
+    conf.get( "use_mp_lines", _useMPLines );
 
     conf.get( "shader_policy", "disable",  _shaderPolicy, SHADERPOLICY_DISABLE );
     conf.get( "shader_policy", "inherit",  _shaderPolicy, SHADERPOLICY_INHERIT );
@@ -151,6 +152,7 @@ GeometryCompilerOptions::getConfig() const
     conf.set( "bind_color_overall", _bindColorOverall );
     conf.set( "no_normals", _noNormals );
     conf.set( "min_segment_length_m", _minSegmentLengthM );
+    conf.set( "use_mp_lines", _useMPLines );
 
     conf.set( "shader_policy", "disable",  _shaderPolicy, SHADERPOLICY_DISABLE );
     conf.set( "shader_policy", "inherit",  _shaderPolicy, SHADERPOLICY_INHERIT );
@@ -474,6 +476,9 @@ GeometryCompiler::compile(FeatureList&          workingSet,
 
         if (_options.minSegmentLengthM().isSet())
             filter.minSegmentLengthM() = *_options.minSegmentLengthM();
+
+        if (_options.useMPLines().isSet())
+            filter.useMPLines() = *_options.useMPLines();
 
         osg::Node* node = filter.push( workingSet, sharedCX );
         if ( node )

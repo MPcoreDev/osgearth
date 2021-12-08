@@ -25,6 +25,7 @@
 #include <osg/Geometry>
 #include <osg/Version>
 #include <osg/Geode>
+#include <osgEarth/LineDrawable>
 
 namespace osgEarth
 {
@@ -156,14 +157,9 @@ namespace osgEarth
 
 
     /**
-     * Group for importing MPLineDrawables from osg::Geometry or for
-     * optimizing multiple MPLineDrawables for performance.
-     *
-     * Note: LMPineGroup inherits from Geode (for now) to maintain support for
-     * the OSG 3.4 MergeGeometryVisitor (which only works on Geodes). Once we
-     * make OSG 3.6 the minimum supported version, we can change this to Group.
+     * Simple inheritance of OsgEarth LineGroup
      */
-    class OSGEARTH_EXPORT MPLineGroup : public osg::Geode
+    class OSGEARTH_EXPORT MPLineGroup : public LineGroup
     {
     public:
         META_Node(osgEarth, MPLineGroup);
@@ -173,12 +169,6 @@ namespace osgEarth
 
         //! Copy constructor
         MPLineGroup(const MPLineGroup& rhs, const osg::CopyOp& copy);
-
-        //! Optimize the LineDrawables under this group for performance.
-        //! Only call this after you finish adding drawables to your group.
-        //! It will attempt to combine drawables (if requested) and state sets,
-        //! but it will also render the graph henceforth immutable.
-        void optimize( bool mergeGeometries = true );
 
     protected:
         //! destructor
