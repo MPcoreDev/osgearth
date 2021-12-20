@@ -69,6 +69,41 @@ namespace osgEarth { namespace Drivers
         optional<unsigned int> _numSegments;
     };
 
+
+    /**
+     * Option for defining a multiple circles shape.
+     */
+    class CirclesOptions : public ConfigOptions // NO EXPORT; header only
+    {
+    public:
+        META_ConfigOptions(osgearth_feature_ogr, CirclesOptions, ConfigOptions);
+
+        const std::vector<CircleOptions>& getCircleList() const { return _circles; }
+
+        void push_back(const CircleOptions& circle) { _circles.push_back(circle); }
+
+        virtual Config getConfig() const override
+        {
+            Config conf = ConfigOptions::getConfig();
+            if ( ! _circles.empty() )
+                for (const auto& circle : _circles)
+                    conf.add( "circle", circle.getConfig() );
+
+            return conf;
+        }
+
+        void fromConfig( const Config& conf )
+        {
+            ConfigSet circlesConfig = conf.children("circle");
+            for (ConfigSet::const_iterator i = circlesConfig.begin(); i != circlesConfig.end(); ++i)
+                _circles.push_back( CircleOptions(*i) );
+        }
+
+    private:
+        std::vector<CircleOptions> _circles;
+    };
+
+
     class OGRFeatureOptions : public FeatureSourceOptions // NO EXPORT; header only
     {
     public:
@@ -90,8 +125,8 @@ namespace osgEarth { namespace Drivers
         optional<Config>& geometryConfig() { return _geometryConf; }
         const optional<Config>& geometryConfig() const { return _geometryConf; }
 
-        optional<CircleOptions>& geometryCircle() { return _geometryCircle; }
-        const optional<CircleOptions>& geometryCircle() const { return _geometryCircle; }
+        optional<CirclesOptions>& geometryCircles() { return _geometryCircles; }
+        const optional<CirclesOptions>& geometryCircles() const { return _geometryCircles; }
 
         optional<std::string>& geometryUrl() { return _geometryUrl; }
         const optional<std::string>& geometryUrl() const { return _geometryUrl; }
@@ -124,8 +159,9 @@ namespace osgEarth { namespace Drivers
             conf.set( "force_rebuild_spatial_index", _forceRebuildSpatialIndex );
             conf.set( "geometry", _geometryConf );
 
-            if ( geometryCircle().isSet() )
-                conf.set( "circle", geometryCircle()->getConfig() );
+            if ( geometryCircles().isSet() )
+                for (const auto& circle : geometryCircles()->getCircleList())
+                    conf.add( "circle", circle.getConfig() );
 
             conf.set( "geometry_url", _geometryUrl );
             conf.set( "layer", _layer );
@@ -149,8 +185,9 @@ namespace osgEarth { namespace Drivers
             conf.get( "force_rebuild_spatial_index", _forceRebuildSpatialIndex );
             conf.get( "geometry", _geometryConf );
 
-            if ( conf.hasChild("circle") )
-                geometryCircle() = CircleOptions(conf.child("circle"));
+            ConfigSet circlesConfig = conf.children("circle");
+            for (ConfigSet::const_iterator i = circlesConfig.begin(); i != circlesConfig.end(); ++i)
+                _geometryCircles->push_back( CircleOptions(*i) );
 
             conf.get( "geometry_url", _geometryUrl );
             conf.get( "layer", _layer);
@@ -164,7 +201,7 @@ namespace osgEarth { namespace Drivers
         optional<bool>                    _buildSpatialIndex;
         optional<bool>                    _forceRebuildSpatialIndex;
         optional<Config>                  _geometryConf;
-        optional<CircleOptions>           _geometryCircle;
+        optional<CirclesOptions>          _geometryCircles;
         optional<Config>                  _geometryProfileConf;
         optional<std::string>             _geometryUrl;
         optional<std::string>             _layer;

@@ -143,9 +143,9 @@ public:
             0L;
 
         // ...or inline circle geometry
-        if (! _geometry.valid() && _options.geometryCircle().isSet())
+        if (! _geometry.valid() && _options.geometryCircles().isSet())
         {
-            _geometry = parseCircle(*_options.geometryCircle());
+            _geometry = parseCircles(*_options.geometryCircles());
         }
 
         // If nothing was set, we're done
@@ -226,9 +226,9 @@ public:
             0L;
 
         // ...or inline circle geometry
-        if (! _geometry.valid() && _options.geometryCircle().isSet())
+        if (! _geometry.valid() && _options.geometryCircles().isSet())
         {
-            _geometry = parseCircle(*_options.geometryCircle());
+            _geometry = parseCircles(*_options.geometryCircles());
         }
 
         // If nothing was set, we're done
@@ -646,6 +646,23 @@ protected:
 
         return 0L;
     }
+
+    // build multiple circles
+    Symbology::Geometry* parseCircles( const CirclesOptions& circlesOpt )
+    {
+        if (circlesOpt.getCircleList().empty())
+            return nullptr;
+
+        MultiGeometry* circles = new MultiGeometry();
+        for (const auto& circle : circlesOpt.getCircleList())
+        {
+            if (auto geom = parseCircle(circle))
+                circles->add( geom );
+        }
+
+        return circles;
+    }
+
 
     void initSchema()
     {
