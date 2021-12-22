@@ -53,7 +53,7 @@ namespace osgEarth { namespace Serializers { namespace LineGroup
         LineGroup,
         new osgEarth::LineGroup,
         osgEarth::LineGroup,
-        "osg::Object osg::Node osg::Group osg::Geode osgEarth::LineGroup")
+        "osg::Object osg::Node osg::Geode osgEarth::LineGroup")
     {
         // no properties
     }

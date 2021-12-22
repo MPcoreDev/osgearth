@@ -52,7 +52,7 @@ namespace osgEarth { namespace Serializers { namespace MPLineGroup
         MPLineGroup,
         new osgEarth::MPLineGroup,
         osgEarth::MPLineGroup,
-        "osg::Object osg::Node osg::Group osg::Geode osgEarth::MPLineGroup")
+        "osg::Object osg::Node osg::Geode osgEarth::LineGroup osgEarth::MPLineGroup")
     {
         // no properties
     }
