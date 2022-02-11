@@ -165,10 +165,10 @@ namespace osgEarth
         META_Node(osgEarth, MPLineGroup);
 
         //! Construct a new line group
-        MPLineGroup();
+        MPLineGroup(bool useCustomCull = false);
 
         //! Copy constructor
-        MPLineGroup(const MPLineGroup& rhs, const osg::CopyOp& copy);
+        MPLineGroup(const MPLineGroup& rhs, const osg::CopyOp& copy, bool useCustomCull = false);
 
     protected:
         //! destructor

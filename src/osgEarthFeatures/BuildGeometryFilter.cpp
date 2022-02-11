@@ -473,7 +473,8 @@ osg::Group*
 BuildGeometryFilter::processLines(FeatureList& features, FilterContext& context)
 {
     // Group to contain all the lines we create here
-    LineGroup* drawables = _useMPLines.isSetTo(true) ? new MPLineGroup() : new LineGroup();
+    bool customCull = _useCustomCull.isSetTo(true);
+    LineGroup* drawables = _useMPLines.isSetTo(true) ? new MPLineGroup(customCull) : new LineGroup();
 
     bool makeECEF = false;
     const SpatialReference* featureSRS = 0L;

@@ -125,6 +125,7 @@ GeometryCompilerOptions::fromConfig( const Config& conf )
     conf.get( "no_normals", _noNormals );
     conf.get( "min_segment_length_m", _minSegmentLengthM );
     conf.get( "use_mp_lines", _useMPLines );
+    conf.get( "use_custom_cull", _useCustomCull );
 
     conf.get( "shader_policy", "disable",  _shaderPolicy, SHADERPOLICY_DISABLE );
     conf.get( "shader_policy", "inherit",  _shaderPolicy, SHADERPOLICY_INHERIT );
@@ -153,6 +154,7 @@ GeometryCompilerOptions::getConfig() const
     conf.set( "no_normals", _noNormals );
     conf.set( "min_segment_length_m", _minSegmentLengthM );
     conf.set( "use_mp_lines", _useMPLines );
+    conf.set( "use_custom_cull", _useCustomCull );
 
     conf.set( "shader_policy", "disable",  _shaderPolicy, SHADERPOLICY_DISABLE );
     conf.set( "shader_policy", "inherit",  _shaderPolicy, SHADERPOLICY_INHERIT );
@@ -479,6 +481,9 @@ GeometryCompiler::compile(FeatureList&          workingSet,
 
         if (_options.useMPLines().isSet())
             filter.useMPLines() = *_options.useMPLines();
+
+        if (_options.useCustomCull().isSet())
+            filter.useCustomCull() = *_options.useCustomCull();
 
         osg::Node* node = filter.push( workingSet, sharedCX );
         if ( node )

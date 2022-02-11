@@ -71,18 +71,45 @@ namespace
         de->reserveElements(size);
         return de;
     }
+
+    class MPLineDrawableCullCallback : public osg::NodeCallback
+    {
+       public:
+        MPLineDrawableCullCallback() {}
+
+        virtual ~MPLineDrawableCullCallback() override {}
+
+        void operator()(osg::Node *node, osg::NodeVisitor *nv) override
+        {
+            float distanceToCenter = nv->getEyePoint().length();
+            osg::ref_ptr<MPLineGroup> lineGroup = static_cast<MPLineGroup*>(node);
+            for (unsigned int i = 0 ; i < lineGroup->getNumChildren() ; ++i)
+            {
+                osg::Node *lineDrawable = lineGroup->getChild(i);
+                float distance = nv->getDistanceToViewPoint(lineDrawable->getBound().center(), false);
+                (distance < distanceToCenter) ? lineDrawable->setNodeMask(~0) : lineDrawable->setNodeMask(0);
+            }
+            traverse(node, nv);
+        }
+    };
 }
 
 
-MPLineGroup::MPLineGroup() : LineGroup()
+MPLineGroup::MPLineGroup(bool useCustomCull) : LineGroup()
 {
-    //nop
+    if (useCustomCull)
+    {
+        addCullCallback(new MPLineDrawableCullCallback());
+    }
 }
 
-MPLineGroup::MPLineGroup(const MPLineGroup& rhs, const osg::CopyOp& copy) :
-LineGroup(rhs, copy)
+MPLineGroup::MPLineGroup(const MPLineGroup &rhs, const osg::CopyOp &copy, bool useCustomCull)
+    : LineGroup(rhs, copy)
 {
-    //nop
+    if (useCustomCull)
+    {
+        addCullCallback(new MPLineDrawableCullCallback());
+    }
 }
 
 MPLineGroup::~MPLineGroup()

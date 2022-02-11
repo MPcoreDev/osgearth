@@ -124,6 +124,10 @@ namespace osgEarth { namespace Features
         optional<bool>& useMPLines() { return _useMPLines; }
         const optional<bool>& useMPLines() const { return _useMPLines; }
 
+        /** Whether to use the custom cull implementation */
+        optional<bool>& useCustomCull() { return _useCustomCull; }
+        const optional<bool>& useCustomCull() const { return _useCustomCull; }
+
     protected:
         Style                      _style;
 
@@ -139,7 +143,8 @@ namespace osgEarth { namespace Features
         optional<bool>             _noNormals;
         optional<double>           _minSegmentLengthM;
         optional<bool>             _useMPLines;
-        
+        optional<bool>             _useCustomCull;
+
         void tileAndBuildPolygon(
             Geometry*               input,
             const SpatialReference* featureSRS,
