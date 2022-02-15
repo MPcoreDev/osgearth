@@ -86,7 +86,7 @@ namespace
             for (unsigned int i = 0 ; i < lineGroup->getNumChildren() ; ++i)
             {
                 osg::Node *lineDrawable = lineGroup->getChild(i);
-                float distance = nv->getDistanceToViewPoint(lineDrawable->getBound().center(), false);
+                float distance = nv->getDistanceFromEyePoint(lineDrawable->getBound().center(), false);
                 (distance < distanceToCenter) ? lineDrawable->setNodeMask(~0) : lineDrawable->setNodeMask(0);
             }
             traverse(node, nv);
