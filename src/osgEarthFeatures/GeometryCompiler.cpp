@@ -124,7 +124,11 @@ GeometryCompilerOptions::fromConfig( const Config& conf )
     conf.get( "bind_color_overall", _bindColorOverall );
     conf.get( "no_normals", _noNormals );
     conf.get( "min_segment_length_m", _minSegmentLengthM );
-    conf.get( "use_mp_lines", _useMPLines );
+
+    conf.get( "use_mp_lines", "true", _useMPLines, USEMPLINES_TRUE );
+    conf.get( "use_mp_lines", "false", _useMPLines, USEMPLINES_FALSE );
+    conf.get( "use_mp_lines", "auto", _useMPLines, USEMPLINES_AUTO );
+
     conf.get( "use_custom_cull", _useCustomCull );
 
     conf.get( "shader_policy", "disable",  _shaderPolicy, SHADERPOLICY_DISABLE );
@@ -153,7 +157,11 @@ GeometryCompilerOptions::getConfig() const
     conf.set( "bind_color_overall", _bindColorOverall );
     conf.set( "no_normals", _noNormals );
     conf.set( "min_segment_length_m", _minSegmentLengthM );
-    conf.set( "use_mp_lines", _useMPLines );
+
+    conf.set( "use_mp_lines", "true", _useMPLines, USEMPLINES_TRUE );
+    conf.set( "use_mp_lines", "false", _useMPLines, USEMPLINES_FALSE );
+    conf.set( "use_mp_lines", "auto", _useMPLines, USEMPLINES_AUTO );
+
     conf.set( "use_custom_cull", _useCustomCull );
 
     conf.set( "shader_policy", "disable",  _shaderPolicy, SHADERPOLICY_DISABLE );

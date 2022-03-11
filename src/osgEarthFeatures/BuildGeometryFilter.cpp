@@ -19,6 +19,7 @@
 #include <osgEarthFeatures/BuildGeometryFilter>
 #include <osgEarthFeatures/Session>
 #include <osgEarthFeatures/FeatureSourceIndexNode>
+#include <osgEarthFeatures/GeometryCompiler>
 #include <osgEarthFeatures/PolygonizeLines>
 #include <osgEarthFeatures/GeometryUtils>
 #include <osgEarthSymbology/TextSymbol>
@@ -474,7 +475,7 @@ BuildGeometryFilter::processLines(FeatureList& features, FilterContext& context)
 {
     // Group to contain all the lines we create here
     bool customCull = _useCustomCull.isSetTo(true);
-    LineGroup* drawables = _useMPLines.isSetTo(true) ? new MPLineGroup(customCull) : new LineGroup();
+    LineGroup* drawables = new MPLineGroup(customCull);
 
     bool makeECEF = false;
     const SpatialReference* featureSRS = 0L;
@@ -535,8 +536,14 @@ BuildGeometryFilter::processLines(FeatureList& features, FilterContext& context)
             transformAndLocalize( part->asVector(), featureSRS, allPoints.get(), outputSRS, _world2local, makeECEF );
             osg::Geometry* drawable = nullptr;
 
+            // MPlines set to auto or not set
+            bool useMPLinesFalseOrNotSet = _useMPLines.isSetTo( GeometryCompilerOptions::USEMPLINES_AUTO ) ||
+                                            !_useMPLines.isSet();
             // build a osgearth LineDrawable
-            if (! _useMPLines.isSetTo(true))
+            if ( _useMPLines.isSetTo( GeometryCompilerOptions::USEMPLINES_FALSE ) ||
+                 ( useMPLinesFalseOrNotSet
+                   && line->stroke()->stipplePattern().isSet()
+                   && line->stroke()->stipplePattern().get() !=  0xffff  ) )
             {
                 // construct a drawable for the lines
                 bool gpu = !line->stroke().isSet() || line->stroke()->gpu().get();

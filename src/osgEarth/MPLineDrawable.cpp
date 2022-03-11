@@ -82,7 +82,7 @@ namespace
         void operator()(osg::Node *node, osg::NodeVisitor *nv) override
         {
             float distanceToCenter = nv->getEyePoint().length();
-            osg::ref_ptr<MPLineGroup> lineGroup = static_cast<MPLineGroup*>(node);
+            osg::ref_ptr<osg::Group> lineGroup = static_cast<osg::Group*>(node);
             for (unsigned int i = 0 ; i < lineGroup->getNumChildren() ; ++i)
             {
                 osg::Node *lineDrawable = lineGroup->getChild(i);

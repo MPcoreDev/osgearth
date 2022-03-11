@@ -35,6 +35,13 @@ namespace osgEarth { namespace Features
     class OSGEARTHFEATURES_EXPORT GeometryCompilerOptions
     {
     public:
+        enum UseMPLines {
+            USEMPLINES_TRUE,
+            USEMPLINES_FALSE,
+            USEMPLINES_AUTO
+        };
+
+    public:
         /**
          * Set the global default values for the options.
          */
@@ -126,9 +133,14 @@ namespace osgEarth { namespace Features
         optional<double>& minSegmentLengthM() { return _minSegmentLengthM; }
         const optional<double>& minSegmentLengthM() const { return _minSegmentLengthM; }
 
-        /** Whether to use the new line implementation */
-        optional<bool>& useMPLines() { return _useMPLines; }
-        const optional<bool>& useMPLines() const { return _useMPLines; }
+        /** Whether to use the new line implementation
+         *      true    : MPLineDrawable must be used
+         *      false   : LineDrawable must be used
+         *      auto    : LineDrawable is used if the line pattern is defined and actually dashed (stroke-stipple-pattern defined and different then 0xffff)
+         */
+        optional<UseMPLines>& useMPLines() { return _useMPLines; }
+        const optional<UseMPLines>& useMPLines() const { return _useMPLines; }
+
 
         /** Whether to use custom cull implementation */
         optional<bool>& useCustomCull() { return _useCustomCull; }
@@ -159,7 +171,7 @@ namespace osgEarth { namespace Features
         optional<bool>                 _bindColorOverall;
         optional<bool>                 _noNormals;
         optional<double>               _minSegmentLengthM;
-        optional<bool>                 _useMPLines;
+        optional<UseMPLines>           _useMPLines;
         optional<bool>                 _useCustomCull;
 
         static GeometryCompilerOptions s_defaults;
