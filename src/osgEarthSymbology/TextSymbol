@@ -76,6 +76,7 @@ public:
     enum PlacementTechnique {
         SCREEN_EDGE_ONLY,
         RIGHT_OR_LEFT_FROM_ICON,
+        POLYGON_VISIBLE,
         NONE
     };
     META_Object(osgEarthSymbology, TextSymbol);

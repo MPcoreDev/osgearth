@@ -60,6 +60,7 @@ public:
                               _autoRotate(false),
                               _autoFollowLine(false),
                               _screenClamping(false),
+                              _polygonVisible(false),
                               _instanceIndex(0) { }
 
     /** Decluttering priority - FLT_MAX means don't declutter */
@@ -106,6 +107,10 @@ public:
     void setScreenClamping(bool screenClamping) { _screenClamping = screenClamping; }
     bool screenClamping() const { return _screenClamping; }
 
+    /** Whether the label shall be displayed on the visible part of the polygon */
+    void setPolygonVisible(bool polygonVisible) {_polygonVisible = polygonVisible; }
+    bool polygonVisible() const { return _polygonVisible; }
+
     /** Whether the label can be placed to right or left positions from the icon */
     void setRightLeftPlacementAvail(bool rightLeftPlacementAvail) { _rightLeftPlacementAvail = rightLeftPlacementAvail; }
     bool rightLeftPlacementAvail() const { return _rightLeftPlacementAvail; }
@@ -142,6 +147,7 @@ public:
     PlacementLayout _placementLayout {TEXT_ON_RIGHT};
     bool        _cluttered {false};
     bool        _screenClamping {false};
+    bool        _polygonVisible{false};
     bool        _rightLeftPlacementAvail {false};
 
 public:

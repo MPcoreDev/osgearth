@@ -360,6 +360,103 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
         }
     }
 
+    bool getInsertectionPoint(const osg::BoundingBox& bb, const osg::Vec3d pc1,
+                                    const osg::Vec3d pc2, GeoPoint& gp1, GeoPoint& gp2,
+                                    osg::Vec3d& to1,osg::Vec3d& to2) {
+
+        osg::ref_ptr<osg::LineSegment> seg;
+        const osgEarth::SpatialReference *srs =
+                osgEarth::SpatialReference::create("epsg:4326");
+        GeoPoint gp3;
+
+        if (!seg.valid())
+            seg = new osg::LineSegment(pc1, pc2);
+        else
+            seg->set(pc1, pc2);
+        float r1 = 0, r2 = 0;
+
+        bool inter = seg->intersectAndComputeRatios(bb, r1, r2);
+        if (r1 < 0.001f){
+            r1 = r2;
+            r2 = 1;
+        }
+        // if the line intersects the screen edges
+        if (inter) {
+
+            double lat1 = osg::DegreesToRadians(gp1.y());
+            double lon1 = osg::DegreesToRadians(gp1.x());
+            double lat2 = osg::DegreesToRadians(gp2.y());
+            double lon2 = osg::DegreesToRadians(gp2.x());
+
+            double b = GeoMath::rhumbBearing(lat1, lon1, lat2, lon2);
+            double d = GeoMath::rhumbDistance(lat1, lon1, lat2, lon2);
+            double la = 0., lo = 0.;
+
+            osg::Vec3d mid;
+            double d1 = d;
+
+            GeoMath::rhumbDestination(lat1, lon1, b, d1 * r1, la, lo);
+            gp3.set(srs, osg::RadiansToDegrees(lo), osg::RadiansToDegrees(la), 0,
+                    AltitudeMode::ALTMODE_ABSOLUTE);
+            gp3.toWorld(to1);
+            if (r2 < .99f){
+                GeoMath::rhumbDestination(lat1, lon1, b, d1 * r2, la, lo);
+                gp3.set(srs, osg::RadiansToDegrees(lo), osg::RadiansToDegrees(la), 0,
+                        AltitudeMode::ALTMODE_ABSOLUTE);
+                gp3.toWorld(to2);
+
+            }
+        }
+        return inter;
+    }
+
+    GeoPoint compute2DPolygonCentroid(const GeoPoint *vertices, int vertexCount) {
+        const osgEarth::SpatialReference *srs =
+                osgEarth::SpatialReference::create("wgs84");
+
+        double cenX = 0;
+        double cenY = 0;
+        double signedArea = 0.0;
+        double x0 = 0.0; // Current vertex X
+        double y0 = 0.0; // Current vertex Y
+        double x1 = 0.0; // Next vertex X
+        double y1 = 0.0; // Next vertex Y
+        double a = 0.0;  // Partial signed area
+
+        int lastdex = vertexCount - 1;
+        const GeoPoint *prev = &(vertices[lastdex]);
+        const GeoPoint *next;
+
+        // For all vertices in a loop
+        for (int i = 0; i < vertexCount; ++i) {
+            next = &(vertices[i]);
+            x0 = prev->x();
+            y0 = prev->y();
+            x1 = next->x();
+            y1 = next->y();
+            a = x0 * y1 - x1 * y0;
+            signedArea += a;
+            cenX += (x0 + x1) * a;
+            cenY += (y0 + y1) * a;
+            prev = next;
+        }
+
+        signedArea *= 0.5;
+        cenX /= (6.0 * signedArea);
+        cenY /= (6.0 * signedArea);
+        GeoPoint centroid(srs, cenX, cenY,1);
+        //    printf("\ncentroid (%.2f %.2f)", centroid.x(), centroid.y());
+
+        return centroid;
+    }
+
+    bool isPointInsideScreen(const osg::Vec3d& pc){
+
+        bool p_in_width = pc.x() < 1.0 && pc.x() > -1.0;
+        bool p_in_height = pc.y() < 1.0 && pc.y() > -1.0;
+        return p_in_width && p_in_height;
+    }
+
     // override.
     // Sorts the bin. This runs in the CULL thread after the CULL traversal has completed.
     void sortImplementation(osgUtil::RenderBin* bin)
@@ -453,8 +550,10 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
         {
             osgUtil::RenderLeaf* leaf = *i;
             if ( ! leaf->_drawable.valid() )
+            {
+                printf("\nleaf->_drawable.valid() is not valid");
                 continue;
-
+            }
             MPScreenSpaceGeometry* annoDrawable = static_cast<MPScreenSpaceGeometry*>(leaf->_drawable.get());
 
             // transform the bounding box of the drawable into window-space.
@@ -482,7 +581,158 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
                 updateOffsetForAutoLabelOnLine(box, vp, annoDrawable->_cull_anchorOnScreen, annoDrawable, camVPW, slidingOffset, to);
                 annoDrawable->_cull_anchorOnScreen += slidingOffset;
             }
-            
+
+            // ***** Computes label location for the grid mora (visible part of the
+            // polygon)
+            if (annoDrawable->polygonVisible()) {
+                const osgEarth::SpatialReference *srs4326 =
+                        osgEarth::SpatialReference::create("epsg:4326");
+
+                osg::Vec3d pw[8];
+                GeoPoint gp[8];
+                pw[0] = annoDrawable->getLineStartPoint();
+                pw[2] = annoDrawable->getLineEndPoint();
+
+                gp[0].fromWorld(srs4326, pw[0]);
+                gp[2].fromWorld(srs4326, pw[2]);
+
+                gp[1].set(srs4326, gp[0].x(), gp[2].y(), gp[2].z(), ALTMODE_ABSOLUTE);
+                gp[3].set(srs4326, gp[2].x(), gp[0].y(), gp[0].z(), ALTMODE_ABSOLUTE);
+
+                gp[1].toWorld(pw[1]);
+                gp[3].toWorld(pw[3]);
+
+                // hide labels that are on the other side of the globe
+                if((eye-pw[1]).length2()>eye.length2() ||
+                    (eye-pw[3]).length2()>eye.length2() ) //on the other side of earth
+                {
+                    visible = false;
+                    printf("\nvisible is false");
+                }
+
+                if( visible )
+                {
+                    osg::Vec3f polygongOffset;
+                    // Calculate the "clip to world" matrix = MVPinv.
+                    osg::Matrix MVP = cam->getViewMatrix() * cam->getProjectionMatrix();
+                    osg::Matrix MVPinv;
+                    MVPinv.invert(MVP);
+
+                    osg::Vec3d pc[8];
+                    bool p_inside_screen[8];
+                    bool polygon_inside_screen = true;
+                    int any_point_on_screen = 0;
+                    for (int i=0;i<4 ;i++)
+                    {
+                        pc[i] = pw[i] * MVP;
+                        p_inside_screen[i] = isPointInsideScreen(pc[i]);
+                        polygon_inside_screen = polygon_inside_screen && p_inside_screen[i];
+                        any_point_on_screen +=  p_inside_screen[i];
+                        //            printf("\nPC%i (%.2f %.2f)",i, pc[i].x() ,pc[i].y());
+//                        printf("\nGP%i (%.2f %.2f) inside:%i",i, gp[i].x() ,gp[i].y(),p_inside_screen[i]);
+                    }
+                    // if all 4 points are visible, there is nothing to do.
+                    visible = true;
+                    if (!polygon_inside_screen) {
+                        // check if at least 1 point is visible
+                        if (any_point_on_screen) {
+                            // calculate intersection beetwen the screen and the polygon
+                            //printf("\nAt least 1 point on the screen(less than 4)");
+                            visible = true;
+                            osg::BoundingBox bb(-1.0, -1.0, -1.0,
+                                                1.0, 1.0, 1.0 );
+                            for (int i=4;i<8 ;i++)
+                            {
+                                int k = (i-4) % 4;
+                                int l = (i-3) % 4;
+                                if (p_inside_screen[k]  + p_inside_screen[l] == 1){
+                                    osg::Vec3d inter1, inter2;
+                                    bool intersection = getInsertectionPoint(bb, pc[k], pc[l], gp[k], gp[l],inter1,inter2);
+                                    if (intersection){// only 1 intersection is needed in this case.
+                                        gp[i].fromWorld(srs4326, inter1);
+                                    }
+                                    p_inside_screen[i] = intersection;
+                                } else
+                                {
+                                    p_inside_screen[i] = false;
+                                }
+                            }
+                            if (any_point_on_screen ==1){   //only one of the corners is visible
+                                osg::Vec3d sc_pc[4];
+                                sc_pc[0].set(-.999, -.999, pc[0].z());
+                                sc_pc[1].set(-.999, +.999, pc[0].z());
+                                sc_pc[2].set(+.999, +.999, pc[0].z());
+                                sc_pc[3].set(+.999, -.999, pc[0].z());
+                                osg::Vec3d sc_pw[4];
+                                GeoPoint sc_gp[4];
+                                for (int i=0;i<4 ;i++){
+                                    sc_pw[i] = sc_pc[i] * MVPinv;
+                                    sc_gp[i].fromWorld(srs4326, sc_pw[i]);
+                                }
+
+                                for (int i=0;i<4 ;i++){
+                                    if ( p_inside_screen[i] ){
+                                        int k =  (i+2) % 4;
+                                        p_inside_screen[k] = true;
+                                        gp[k] = sc_gp[k];
+                                        break;
+                                    }
+                                }
+                            }
+                            GeoPoint polygon[8];
+                            int index = 0;
+
+                            for (int i=0;i<4 ;i++)
+                            {
+                                if (p_inside_screen[i])
+                                    polygon[index++] = gp[i];
+                                if (p_inside_screen[i+4])
+                                    polygon[index++] = gp[i+4];
+                            }
+
+                            GeoPoint center = compute2DPolygonCentroid(polygon, index);
+                            if (isnan(center.x()) || isinf(center.x())) {
+                                              printf("\n==Centroid INVALID");
+                            } else {
+                                osg::Vec3d pwNewLocation;
+                                center.toWorld(pwNewLocation);
+//                                printf("\n==old Centroid (%.2f  %.2f  %.2f)", annoDrawable->_cull_anchorOnScreen.x(),annoDrawable->_cull_anchorOnScreen.y(),annoDrawable->_cull_anchorOnScreen.z());
+                                annoDrawable->setAnchorPoint(pwNewLocation);
+//                                annoDrawable->_cull_anchorOnScreen = pwNewLocation;   //pwNewLocation*MVP
+//                                printf("\n==new Centroid (%.2f  %.2f  %.2f)", annoDrawable->_cull_anchorOnScreen.x(),annoDrawable->_cull_anchorOnScreen.y(),annoDrawable->_cull_anchorOnScreen.z());
+                            }
+                        } else {
+
+                            // calculate the centroid of the visible area
+                            // this code is working but unfortunately also
+                            // shows all the labels quickly (globe) despite
+                            // only a few mora being visible.
+                            //          printf("\n==No corner is visible");
+                            visible = false;  // TODO: the screen could be inside 1 square.
+
+//                            osg::BoundingBox bb(-1.0, -1.0, -1.0,
+//                                                1.0, 1.0, 1.0 );
+//                            osg::BoundingBox mora(pc[0].x(),pc[0].y(), -1.0,
+//                                    pc[2].x(), pc[2].y(), 1.0 );
+
+//                            osg::BoundingBox inter = bb.intersect(mora);
+//                            osg::Vec3d pcNewLocation,pwNewLocation;
+
+//                            pcNewLocation.set(inter.center().x(),inter.center().y(),inter.center().z());
+//                            pwNewLocation = pcNewLocation * MVPinv;
+//                            annoDrawable->setAnchorPoint(pwNewLocation);
+                        }
+                    } else {
+                        // No calculations should be needed here as
+                        // the calculated centroid is where the label should
+                        // be displayed
+                    }
+                }
+            }
+            //  ***** end of grid mora's label computation
+
+
+
             // computes the clamped labels (used for graticules)
             if (annoDrawable->screenClamping())
             {
