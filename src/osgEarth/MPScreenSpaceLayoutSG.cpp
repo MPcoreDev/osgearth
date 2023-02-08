@@ -479,15 +479,14 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
             }
 
             // adapt the offset for auto sliding label
-            if (annoDrawable->isAutoFollowLine() )
+            if (annoDrawable->isAutoFollowLine())
             {
                 osg::Vec3f slidingOffset;
                 updateOffsetForAutoLabelOnLine(box, vp, annoDrawable->_cull_anchorOnScreen, annoDrawable, camVPW, slidingOffset, to);
                 annoDrawable->_cull_anchorOnScreen += slidingOffset;
             }
 
-            // ***** Computes label location for the grid mora (visible part of the
-            // polygon)
+            // Computes label location for the grid mora (visible part of the polygon)
             if (annoDrawable->polygonVisible()) {
                 osg::Vec3d pw0, pw2;
                 pw0 = annoDrawable->getLineStartPoint();
