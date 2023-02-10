@@ -443,7 +443,7 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
         //        bool camChanged = camVPW != local._lastCamVPW;
         local._lastCamVPW = camVPW;
         osg::Matrix MVP = cam->getViewMatrix() * cam->getProjectionMatrix();
-        osg::BoundingBox bbScreen2d(-1.0, -1.0, 0, 1.0, 1.0, 0 );
+        osg::BoundingBox2D bbScreen2d(-1.0, -1.0, 1.0, 1.0);
 
         osg::Vec3f offset;
 
@@ -488,48 +488,39 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
 
             // Computes label location for the grid mora (visible part of the polygon)
             if (annoDrawable->polygonVisible()) {
-                osg::Vec3d pw0, pw2;
-                pw0 = annoDrawable->getLineStartPoint();
-                pw2 = annoDrawable->getLineEndPoint();
-
-                // hide labels that are on the other side of the globe
-                if((eye-pw0).length2()>eye.length2() ) //on the other side of earth
+                visible = false;
+                // use the centroid to display the label if visible
+                osg::Vec3d centroid = annoDrawable->getAnchorPoint() * MVP;
+                if (fabs(centroid.x()) < 1.0 && fabs(centroid.y()) < 1.0)
                 {
-                    visible = false;
+                    visible = true;
                 }
-
-                if( visible )
+                else
                 {
                     osg::Vec3d pc0,pc2;
-                    pc0 = pw0 * MVP;
-                    pc2 = pw2 * MVP;
+                    pc0 = annoDrawable->getLineStartPoint() * MVP;
+                    pc2 = annoDrawable->getLineEndPoint() * MVP;
 
-                    osg::BoundingBox mora(pc0.x(), pc0.y(), 0, pc2.x() , pc2.y(), 0 );
-                    osg::Vec3d pwNewLocation;
-                    bool forceCentroid = true;
+                    osg::BoundingBox2D mora(fmin(pc0.x(),pc2.x()), fmin(pc0.y(),pc2.y()), fmax(pc0.x(),pc2.x()), fmax(pc0.y(),pc2.y()) );
+
                     if (mora.intersects(bbScreen2d))
                     {
-                        osg::BoundingBox inter = mora.intersect(bbScreen2d);
-                        osg::Vec3d pcCenter = inter.center();
-                        if (fabs(pcCenter.x()) <.97 && fabs(pcCenter.y()) <.97)// it is not too close to the edge of the screen
+                        osg::BoundingBox2D inter = mora.intersect(bbScreen2d);
+                        osg::Vec2d pcNewLocation = inter.center();
+                        if (fabs(pcNewLocation.x()) < .98 && fabs(pcNewLocation.y()) < .98)// it is not too close to the edge of the screen
                         {
-                            pwNewLocation = mora.intersect(bbScreen2d).center();
-                            forceCentroid = false;
+                            // relocate labels if they are not at the poles (lat +-90)
+                            if (fabs(annoDrawable->getLineEndPoint().y()) > 0.01
+                                    && fabs(annoDrawable->getLineStartPoint().y()) > 0.01)
+                            {
+                                osg::Vec3d pwNewLocation3d(pcNewLocation.x(),pcNewLocation.y(),0);
+                                annoDrawable->_cull_anchorOnScreen = pwNewLocation3d * windowMatrix;
+                            }
+                            visible = true;
                         }
-                    }
-                    if (forceCentroid)
-                    {
-                        pwNewLocation = mora.center();
-                    }
-                    pwNewLocation =pwNewLocation * windowMatrix;
-                    if (pwNewLocation != annoDrawable->getAnchorPoint())
-                    {
-                        annoDrawable->_cull_anchorOnScreen = pwNewLocation;
                     }
                 }
             }
-            //  ***** end of grid mora's label computation
-
 
             // computes the clamped labels (used for graticules)
             if (annoDrawable->screenClamping())
@@ -627,8 +618,6 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
                         }
 
                         annoDrawable->_cull_anchorOnScreen = to*MVP;
-//                        printf("\n (%.2f %.2f %.2f)",to.x(),to.y(),to.z());
-//                        printf("\n Cull(%.2f %.2f %.2f)",annoDrawable->_cull_anchorOnScreen.x(),annoDrawable->_cull_anchorOnScreen.y(),annoDrawable->_cull_anchorOnScreen.z());
 
                         if( annoDrawable->_cull_anchorOnScreen.isNaN())
                         { //sometimes, the computed intersection lands outside of screen space which can produce a NaN coordinates
@@ -711,12 +700,13 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
                 }
 
                 // A max priority => always display
-                if ( annoDrawable->_priority == DBL_MAX || ! annoDrawable->_declutterActivated)
-                {
-                    visible = true;
-                }
+//                if ( annoDrawable->_priority == DBL_MAX || ! annoDrawable->_declutterActivated)
+//                {
+//                    visible = true;
+//                }
 
-                else
+//                else
+                if ( annoDrawable->_priority != DBL_MAX && annoDrawable->_declutterActivated)
                 {
                     // declutter only on screen cells that intersects the current bbox cells
                     if ( useScreenGrid )
@@ -819,7 +809,6 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
                 local._used.push_back( box );
                 local._passed.push_back( leaf );
             }
-
             osg::Matrix newModelView;
             newModelView.makeTranslate(annoDrawable->_cull_anchorOnScreen.x(), annoDrawable->_cull_anchorOnScreen.y(), 0);
 
