@@ -457,8 +457,7 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
         typedef boost::geometry::model::d2::point_xy<double> boost_point;
         typedef boost::geometry::model::polygon<boost_point> boost_polygon;
         boost_polygon geomScreen;
-        boost::geometry::read_wkt(
-                    "POLYGON((-1.0 -1.0 , -1.0 1.0 , 1.0 1.0 , 1.0 -1.0, -1.0 -1.0))", geomScreen);
+        boost::geometry::read_wkt("POLYGON((-1.0 -1.0 , -1.0 1.0 , 1.0 1.0 , 1.0 -1.0, -1.0 -1.0))", geomScreen);
 
         osg::Vec3f offset;
 

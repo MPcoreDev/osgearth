@@ -358,15 +358,19 @@ long MPAnnotationGroupSG::addAnnotation(const Style& style, Geometry *geom, cons
     
     // process grid mora polygon (label)
     if (ts && ts->placementTechnique().isSetTo(
-                TextSymbol::PlacementTechnique::POLYGON_VISIBLE)) {
+                TextSymbol::PlacementTechnique::POLYGON_VISIBLE))
+    {
         osg::Vec3d p1, p2,p3,p4;    //used as the bounding box corners
         geomSupport = geom;
 
         Polygon *geomPolygon = nullptr;
 
-        if (geomSupport->getType() == Geometry::TYPE_POLYGON) {
+        if (geomSupport->getType() == Geometry::TYPE_POLYGON)
+        {
             geomPolygon = dynamic_cast<Polygon *>(geomSupport.get());
-        } else {
+        }
+        else
+        {
             const MultiGeometry *geomMulti =
                     dynamic_cast<MultiGeometry *>(geomSupport.get());
             if (geomMulti)
@@ -387,7 +391,9 @@ long MPAnnotationGroupSG::addAnnotation(const Style& style, Geometry *geom, cons
             gp2.toWorld(p2);
             gp3.toWorld(p3);
             gp4.toWorld(p4);
-        } else {
+        }
+        else
+        {
             OE_WARN << "no geomPolygon avail" << std::endl;
         }
         annoDrawable->setLineStartPoint(p1);
