@@ -87,6 +87,14 @@ public:
     void setLineStartPoint(const osg::Vec3d& value) { _lineStart = value; }
     const osg::Vec3d& getLineStartPoint() const { return _lineStart; }
 
+    /** Start world point for automatic placement on a polygon */
+    void setPolygonPoint1(const osg::Vec3d& value) { _poly1 = value; }
+    const osg::Vec3d& getPolygonPoint1() const { return _poly1; }
+
+    /** Start world point for automatic placement on a polygon */
+    void setPolygonPoint2(const osg::Vec3d& value) { _poly2 = value; }
+    const osg::Vec3d& getPolygonPoint2() const { return _poly2; }
+
     /**
      * Stop world point for automatic placement on a line
      * also used as projection point for label rotation reference
@@ -137,7 +145,7 @@ public:
     bool       _declutterActivated{true};
     osg::Vec2s _pixelOffset{0, 0};
     bool       _autoRotate{false}, _autoFollowLine{false};
-    osg::Vec3d _anchorPoint, _lineStart, _lineEnd;
+    osg::Vec3d _anchorPoint, _lineStart, _lineEnd,_poly1, _poly2;
     osg::BoundingBox    _bbox;
     osg::BoundingSphere _bsphereInitial {osg::Vec3d(0., 0., 0), 0.};
     osg::BoundingBox    _bboxSymetric;

@@ -359,7 +359,7 @@ long MPAnnotationGroupSG::addAnnotation(const Style& style, Geometry *geom, cons
     // process grid mora polygon (label)
     if (ts && ts->placementTechnique().isSetTo(
                 TextSymbol::PlacementTechnique::POLYGON_VISIBLE)) {
-        osg::Vec3d p1, p2;    //used as the bounding box corners
+        osg::Vec3d p1, p2,p3,p4;    //used as the bounding box corners
         geomSupport = geom;
 
         Polygon *geomPolygon = nullptr;
@@ -381,13 +381,19 @@ long MPAnnotationGroupSG::addAnnotation(const Style& style, Geometry *geom, cons
 
             GeoPoint gp1(srs, bounds.xMin(), bounds.yMin(), 0.0, ALTMODE_ABSOLUTE);
             GeoPoint gp2(srs, bounds.xMax(), bounds.yMax(), 0.0, ALTMODE_ABSOLUTE);
+            GeoPoint gp3(srs, bounds.xMin(), bounds.yMax(), 0.0, ALTMODE_ABSOLUTE);
+            GeoPoint gp4(srs, bounds.xMax(), bounds.yMin(), 0.0, ALTMODE_ABSOLUTE);
             gp1.toWorld(p1);
             gp2.toWorld(p2);
+            gp3.toWorld(p3);
+            gp4.toWorld(p4);
         } else {
             OE_WARN << "no geomPolygon avail" << std::endl;
         }
         annoDrawable->setLineStartPoint(p1);
         annoDrawable->setLineEndPoint(p2);
+        annoDrawable->setPolygonPoint1(p3);
+        annoDrawable->setPolygonPoint2(p4);
         annoDrawable->setPolygonVisible(true);
     }
     // label placement technique

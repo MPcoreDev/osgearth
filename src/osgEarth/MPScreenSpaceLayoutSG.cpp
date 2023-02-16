@@ -26,6 +26,12 @@
 #include <osg/LineSegment>
 #include <osgEarth/GeoMath>
 #include <osgEarth/GeoData>
+#include <boost/any.hpp>
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/polygon.hpp>
+#include <boost/geometry/geometries/point_xy.hpp>
+#include <boost/foreach.hpp>
+
 
 // -----------------------------------------------------------
 // This class is mainly copied from ScreenSpaceLayout.cpp
@@ -360,6 +366,11 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
         }
     }
 
+    bool isPointInsideScreen(const osg::Vec3d& pc)
+    {
+        return  (fabs(pc.x()) < 1.0 && fabs(pc.y()) < 1.0);
+    }
+
     // override.
     // Sorts the bin. This runs in the CULL thread after the CULL traversal has completed.
     void sortImplementation(osgUtil::RenderBin* bin)
@@ -443,7 +454,11 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
         //        bool camChanged = camVPW != local._lastCamVPW;
         local._lastCamVPW = camVPW;
         osg::Matrix MVP = cam->getViewMatrix() * cam->getProjectionMatrix();
-        osg::BoundingBox2D bbScreen2d(-1.0, -1.0, 1.0, 1.0);
+        typedef boost::geometry::model::d2::point_xy<double> boost_point;
+        typedef boost::geometry::model::polygon<boost_point> boost_polygon;
+        boost_polygon geomScreen;
+        boost::geometry::read_wkt(
+                    "POLYGON((-1.0 -1.0 , -1.0 1.0 , 1.0 1.0 , 1.0 -1.0, -1.0 -1.0))", geomScreen);
 
         osg::Vec3f offset;
 
@@ -487,40 +502,60 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
             }
 
             // Computes label location for the grid mora (visible part of the polygon)
-            if (annoDrawable->polygonVisible()) {
+            if (annoDrawable->polygonVisible())
+            {
                 visible = false;
                 // use the centroid to display the label if visible
                 osg::Vec3d centroid = annoDrawable->getAnchorPoint() * MVP;
-                if (fabs(centroid.x()) < 1.0 && fabs(centroid.y()) < 1.0)
+                if (isPointInsideScreen(centroid))
                 {
                     visible = true;
                 }
                 else
                 {
-                    osg::Vec3d pc0,pc2;
-                    pc0 = annoDrawable->getLineStartPoint() * MVP;
-                    pc2 = annoDrawable->getLineEndPoint() * MVP;
+                    osg::Vec3d pw[4];
+                    pw[0] = annoDrawable->getLineStartPoint();
+                    pw[2] = annoDrawable->getLineEndPoint();
+                    pw[1] = annoDrawable->getPolygonPoint1();
+                    pw[3] = annoDrawable->getPolygonPoint2();
 
-                    osg::BoundingBox2D mora(fmin(pc0.x(),pc2.x()), fmin(pc0.y(),pc2.y()), fmax(pc0.x(),pc2.x()), fmax(pc0.y(),pc2.y()) );
+                    osg::Vec3d pc[4];
+                    boost_polygon geomMora;
 
-                    if (mora.intersects(bbScreen2d))
+                    for (int i=0;i<4 ;i++)// build the mora geometry
                     {
-                        osg::BoundingBox2D inter = mora.intersect(bbScreen2d);
-                        osg::Vec2d pcNewLocation = inter.center();
-                        if (fabs(pcNewLocation.x()) < .98 && fabs(pcNewLocation.y()) < .98)// it is not too close to the edge of the screen
+//                        printf("\nPW%i (%.2f %.2f)",i, pw[i].x() ,pw[i].y());
+                        pc[i] = pw[i] * MVP;
+                        boost::geometry::append(geomMora.outer(),boost_point(pc[i].x(),pc[i].y()));
+                    }
+                    // repeat first point
+                    boost::geometry::append(geomMora.outer(),boost_point(pc[0].x(),pc[0].y()));
+
+                    std::deque<boost_polygon> output;
+
+                    bool onTheScreen = boost::geometry::intersection(geomMora,geomScreen,  output);
+                    if (onTheScreen)
+                    {
+                        double area;
+                        boost_point centre;
+
+                        BOOST_FOREACH(boost_polygon const& geomInter, output)
                         {
-                            // relocate labels if they are not at the poles (lat +-90)
-                            if (fabs(annoDrawable->getLineEndPoint().y()) > 0.01
-                                    && fabs(annoDrawable->getLineStartPoint().y()) > 0.01)
+                            area = boost::geometry::area(geomInter);
+                            if (area >.005)
                             {
-                                osg::Vec3d pwNewLocation3d(pcNewLocation.x(),pcNewLocation.y(),0);
-                                annoDrawable->_cull_anchorOnScreen = pwNewLocation3d * windowMatrix;
+                                boost::geometry::centroid(geomInter,centre);
+                                osg::Vec3d center3d( centre.x(),centre.y(), 1);
+//                                std::cout << "Centre  "<<center3d.x() <<" "<<center3d.y()<< std::endl;
+                                annoDrawable->_cull_anchorOnScreen = center3d * windowMatrix;
+                                visible = true;
                             }
-                            visible = true;
                         }
                     }
                 }
             }
+            //  ***** end of grid mora's label computation
+
 
             // computes the clamped labels (used for graticules)
             if (annoDrawable->screenClamping())
