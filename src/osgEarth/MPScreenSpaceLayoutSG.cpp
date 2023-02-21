@@ -512,27 +512,23 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
                 }
                 else
                 {
-                    osg::Vec3d pw[4];
-                    pw[0] = annoDrawable->getLineStartPoint();
-                    pw[2] = annoDrawable->getLineEndPoint();
-                    pw[1] = annoDrawable->getPolygonPoint1();
-                    pw[3] = annoDrawable->getPolygonPoint2();
+                    osg::Vec3d pc[5];
+                    pc[0] = annoDrawable->getLineStartPoint()* MVP;
+                    pc[2] = annoDrawable->getLineEndPoint()* MVP;
+                    pc[1] = annoDrawable->getPolygonPoint1()* MVP;
+                    pc[3] = annoDrawable->getPolygonPoint2()* MVP;
+                    pc[4] = pc[0];      // to close the polygon (repeat 1st point)
 
-                    osg::Vec3d pc[4];
                     boost_polygon geomMora;
 
-                    for (int i=0;i<4 ;i++)// build the mora geometry
+                    for (int i=0;i<5 ;i++)// build the mora geometry
                     {
-//                        printf("\nPW%i (%.2f %.2f)",i, pw[i].x() ,pw[i].y());
-                        pc[i] = pw[i] * MVP;
                         boost::geometry::append(geomMora.outer(),boost_point(pc[i].x(),pc[i].y()));
                     }
-                    // repeat first point
-                    boost::geometry::append(geomMora.outer(),boost_point(pc[0].x(),pc[0].y()));
 
                     std::deque<boost_polygon> output;
 
-                    bool onTheScreen = boost::geometry::intersection(geomMora,geomScreen,  output);
+                    bool onTheScreen = boost::geometry::intersection(geomScreen.outer(), geomMora.outer(), output);
                     if (onTheScreen)
                     {
                         double area;
@@ -545,7 +541,7 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
                             {
                                 boost::geometry::centroid(geomInter,centre);
                                 osg::Vec3d center3d( centre.x(),centre.y(), 1);
-//                                std::cout << "Centre  "<<center3d.x() <<" "<<center3d.y()<< std::endl;
+
                                 annoDrawable->_cull_anchorOnScreen = center3d * windowMatrix;
                                 visible = true;
                             }

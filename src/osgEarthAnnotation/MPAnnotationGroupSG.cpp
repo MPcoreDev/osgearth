@@ -378,7 +378,8 @@ long MPAnnotationGroupSG::addAnnotation(const Style& style, Geometry *geom, cons
                         dynamic_cast<Polygon *>(geomMulti->getComponents().front().get());
         }
 
-        if (geomPolygon) {
+        if (geomPolygon)
+        {
             Bounds bounds = geomPolygon->getBounds();
             const osgEarth::SpatialReference *srs =
                     osgEarth::SpatialReference::create("wgs84");
