@@ -151,7 +151,7 @@ public:
     bool       _declutterActivated{true};
     osg::Vec2s _pixelOffset{0, 0};
     bool       _autoRotate{false}, _autoFollowLine{false};
-    osg::Vec3d _anchorPoint, _lineStart, _lineEnd,_poly1, _poly2;
+    osg::Vec3d _anchorPoint, _lineStart, _lineEnd, _poly1, _poly2;
     osg::BoundingBox    _bbox;
     osg::BoundingSphere _bsphereInitial {osg::Vec3d(0., 0., 0), 0.};
     osg::BoundingBox    _bboxSymetric;

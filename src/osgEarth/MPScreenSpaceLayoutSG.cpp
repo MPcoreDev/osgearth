@@ -424,6 +424,10 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
         cam->getViewMatrixAsLookAt(eye, center, up);
         look = center - eye;
         look.normalize();
+        double currentAltitude;
+        cam->getUserValue("altitude", currentAltitude);
+
+
 
         int screenMapNbCol = options.screenGridNbCol().get();
         int screenMapNbRow = options.screenGridNbRow().get();
@@ -465,7 +469,6 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
             osgUtil::RenderLeaf* leaf = *i;
             if ( ! leaf->_drawable.valid() )
             {
-                printf("\nleaf->_drawable.valid() is not valid");
                 continue;
             }
             MPScreenSpaceGeometry* annoDrawable = static_cast<MPScreenSpaceGeometry*>(leaf->_drawable.get());
@@ -499,10 +502,6 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
             if (annoDrawable->polygonVisible())
             {
                 double maxAlt = annoDrawable->getTextPolygonAltitude();
-                double currentAltitude;
-                cam->getUserValue("altitude", currentAltitude);
-
-                //                std::cout <<"alt: ,"<<alt << " current alt: "<< currentAltitude<<"\n";
                 if (currentAltitude > maxAlt)
                 {
                     visible = true;
@@ -527,16 +526,16 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
                         pc[3] = annoDrawable->getPolygonPoint2()* MVP;
                         pc[4] = pc[0];      // to close the polygon (repeat 1st point)
 
-                        boost_polygon geomMora;
+                        boost_polygon geom;
 
                         for (int i=0;i<5 ;i++)// build the mora geometry
                         {
-                            boost::geometry::append(geomMora.outer(),boost_point(pc[i].x(),pc[i].y()));
+                            boost::geometry::append(geom.outer(),boost_point(pc[i].x(),pc[i].y()));
                         }
 
                         std::deque<boost_polygon> output;
 
-                        bool onTheScreen = boost::geometry::intersection(geomScreen.outer(), geomMora.outer(), output);
+                        bool onTheScreen = boost::geometry::intersection(geomScreen.outer(), geom.outer(), output);
                         if (onTheScreen)
                         {
                             double area;
@@ -567,7 +566,6 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
                 const osgEarth::SpatialReference* srs = osgEarth::SpatialReference::create("epsg:4326");
                 
                 // Calculate the "clip to world" matrix = MVPinv.
-//                osg::Matrix MVP = cam->getViewMatrix() * cam->getProjectionMatrix();
                 osg::Matrix MVPinv;
                 MVPinv.invert(MVP);
 
@@ -738,13 +736,6 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
                     mapEndY = osg::clampTo(static_cast<int>(floor((box.yMax() - vpYMin) / mapSizeY)), 0, screenMapNbRow-1);
                 }
 
-                // A max priority => always display
-//                if ( annoDrawable->_priority == DBL_MAX || ! annoDrawable->_declutterActivated)
-//                {
-//                    visible = true;
-//                }
-
-//                else
                 if ( annoDrawable->_priority != DBL_MAX && annoDrawable->_declutterActivated)
                 {
                     // declutter only on screen cells that intersects the current bbox cells
