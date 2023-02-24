@@ -56,16 +56,21 @@ public:
                               _id(-1),
                               _originalPriority(0.0),
                               _priority(0.0),
+                              _textPolygonAltitude(0.0),
                               _pixelOffset(0, 0),
                               _autoRotate(false),
                               _autoFollowLine(false),
+                              _instanceIndex(0),
                               _screenClamping(false),
-                              _polygonVisible(false),
-                              _instanceIndex(0) { }
+                              _polygonVisible(false){ }
 
     /** Decluttering priority - FLT_MAX means don't declutter */
     void setPriority(double value) { _originalPriority = _priority = value; }
     double getPriority() const     { return _priority; }
+
+    /** Decluttering priority - FLT_MAX means don't declutter */
+    void setTextPolygonAltitude(double value) { _textPolygonAltitude = value; }
+    double getTextPolygonAltitude() const     { return _textPolygonAltitude; }
 
     /** Offset from geoposition in screen pixels */
     void setPixelOffset(const osg::Vec2s& value) { _pixelOffset = value; }
@@ -141,6 +146,7 @@ public:
     long       _id{1};
     double     _originalPriority{0.};
     double     _priority{0.};
+    double     _textPolygonAltitude;
     bool       _originalDeclutterActivated{true};
     bool       _declutterActivated{true};
     osg::Vec2s _pixelOffset{0, 0};

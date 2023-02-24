@@ -366,11 +366,6 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
         }
     }
 
-    bool isPointInsideScreen(const osg::Vec3d& pc)
-    {
-        return  (fabs(pc.x()) < 1.0 && fabs(pc.y()) < 1.0);
-    }
-
     // override.
     // Sorts the bin. This runs in the CULL thread after the CULL traversal has completed.
     void sortImplementation(osgUtil::RenderBin* bin)
@@ -503,47 +498,61 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
             // Computes label location for the grid mora (visible part of the polygon)
             if (annoDrawable->polygonVisible())
             {
-                visible = false;
-                // use the centroid to display the label if visible
-                osg::Vec3d centroid = annoDrawable->getAnchorPoint() * MVP;
-                if (isPointInsideScreen(centroid))
+                double maxAlt = annoDrawable->getTextPolygonAltitude();
+                double currentAltitude;
+                cam->getUserValue("altitude", currentAltitude);
+
+                //                std::cout <<"alt: ,"<<alt << " current alt: "<< currentAltitude<<"\n";
+                if (currentAltitude > maxAlt)
                 {
                     visible = true;
                 }
                 else
                 {
-                    osg::Vec3d pc[5];
-                    pc[0] = annoDrawable->getLineStartPoint()* MVP;
-                    pc[2] = annoDrawable->getLineEndPoint()* MVP;
-                    pc[1] = annoDrawable->getPolygonPoint1()* MVP;
-                    pc[3] = annoDrawable->getPolygonPoint2()* MVP;
-                    pc[4] = pc[0];      // to close the polygon (repeat 1st point)
-
-                    boost_polygon geomMora;
-
-                    for (int i=0;i<5 ;i++)// build the mora geometry
+                    visible = false;
+                    // use the centroid to display the label if visible
+                    osg::Vec3d centroid = annoDrawable->getAnchorPoint() * MVP;
+                    double lim = 1.0;
+                    if (centroid.x() > -lim && centroid.x() < lim &&
+                            centroid.y() > -lim && centroid.y() < lim )
                     {
-                        boost::geometry::append(geomMora.outer(),boost_point(pc[i].x(),pc[i].y()));
+                        visible = true;
                     }
-
-                    std::deque<boost_polygon> output;
-
-                    bool onTheScreen = boost::geometry::intersection(geomScreen.outer(), geomMora.outer(), output);
-                    if (onTheScreen)
+                    else
                     {
-                        double area;
-                        boost_point centre;
+                        osg::Vec3d pc[5];
+                        pc[0] = annoDrawable->getLineStartPoint()* MVP;
+                        pc[2] = annoDrawable->getLineEndPoint()* MVP;
+                        pc[1] = annoDrawable->getPolygonPoint1()* MVP;
+                        pc[3] = annoDrawable->getPolygonPoint2()* MVP;
+                        pc[4] = pc[0];      // to close the polygon (repeat 1st point)
 
-                        BOOST_FOREACH(boost_polygon const& geomInter, output)
+                        boost_polygon geomMora;
+
+                        for (int i=0;i<5 ;i++)// build the mora geometry
                         {
-                            area = boost::geometry::area(geomInter);
-                            if (area >.005)
-                            {
-                                boost::geometry::centroid(geomInter,centre);
-                                osg::Vec3d center3d( centre.x(),centre.y(), 1);
+                            boost::geometry::append(geomMora.outer(),boost_point(pc[i].x(),pc[i].y()));
+                        }
 
-                                annoDrawable->_cull_anchorOnScreen = center3d * windowMatrix;
-                                visible = true;
+                        std::deque<boost_polygon> output;
+
+                        bool onTheScreen = boost::geometry::intersection(geomScreen.outer(), geomMora.outer(), output);
+                        if (onTheScreen)
+                        {
+                            double area;
+                            boost_point centre;
+
+                            BOOST_FOREACH(boost_polygon const& geomInter, output)
+                            {
+                                area = boost::geometry::area(geomInter);
+                                if (area >.005)
+                                {
+                                    boost::geometry::centroid(geomInter,centre);
+                                    osg::Vec3d center3d( centre.x(),centre.y(), 1);
+
+                                    annoDrawable->_cull_anchorOnScreen = center3d * windowMatrix;
+                                    visible = true;
+                                }
                             }
                         }
                     }
