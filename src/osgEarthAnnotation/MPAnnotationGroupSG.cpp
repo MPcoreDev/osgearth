@@ -402,7 +402,10 @@ long MPAnnotationGroupSG::addAnnotation(const Style& style, Geometry *geom, cons
         annoDrawable->setPolygonPoint1(p3);
         annoDrawable->setPolygonPoint2(p4);
         annoDrawable->setPolygonVisible(true);
-        annoDrawable->setTextPolygonAltitude(ts->textPolygonAltitude().get());
+        if(ts->textPolygonAltitude().isSet())
+        {
+            annoDrawable->setTextPolygonAltitude(ts->textPolygonAltitude().get());
+        }
     }
     // label placement technique
     

@@ -56,7 +56,7 @@ public:
                               _id(-1),
                               _originalPriority(0.0),
                               _priority(0.0),
-                              _textPolygonAltitude(0.0),
+                              _textPolygonAltitude(DBL_MAX),
                               _pixelOffset(0, 0),
                               _autoRotate(false),
                               _autoFollowLine(false),
@@ -68,7 +68,7 @@ public:
     void setPriority(double value) { _originalPriority = _priority = value; }
     double getPriority() const     { return _priority; }
 
-    /** Decluttering priority - FLT_MAX means don't declutter */
+    /** altitude used to calculate label location on visible part of the polygon */
     void setTextPolygonAltitude(double value) { _textPolygonAltitude = value; }
     double getTextPolygonAltitude() const     { return _textPolygonAltitude; }
 
@@ -121,7 +121,7 @@ public:
     bool screenClamping() const { return _screenClamping; }
 
     /** Whether the label shall be displayed on the visible part of the polygon */
-    void setPolygonVisible(bool polygonVisible) {_polygonVisible = polygonVisible; }
+    void setPolygonVisible(bool polygonVisible) { _polygonVisible = polygonVisible; }
     bool polygonVisible() const { return _polygonVisible; }
 
     /** Whether the label can be placed to right or left positions from the icon */

@@ -427,8 +427,6 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
         double currentAltitude;
         cam->getUserValue("altitude", currentAltitude);
 
-
-
         int screenMapNbCol = options.screenGridNbCol().get();
         int screenMapNbRow = options.screenGridNbRow().get();
         const bool useScreenGrid = options.useScreenGrid().get();
@@ -474,7 +472,8 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
             MPScreenSpaceGeometry* annoDrawable = static_cast<MPScreenSpaceGeometry*>(leaf->_drawable.get());
 
             // transform the bounding box of the drawable into window-space.
-            osg::BoundingBox box = annoDrawable->isAutoFollowLine() ? annoDrawable->getBBox() : annoDrawable->getBoundingBox();
+            //osg::BoundingBox box = annoDrawable->isAutoFollowLine() ? annoDrawable->getBBox() : annoDrawable->getBoundingBox();
+            osg::BoundingBox box = annoDrawable->getBoundingBox();
 
             double angle = 0.;
             osg::Quat rot;
