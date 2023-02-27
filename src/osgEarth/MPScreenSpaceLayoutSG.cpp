@@ -178,10 +178,15 @@ struct LCGIterator
  * soon as one passes the occlusion test, all its siblings will automatically
  * pass as well.
  */
+
+typedef boost::geometry::model::d2::point_xy<double> boost_point;
+typedef boost::geometry::model::polygon<boost_point> boost_polygon;
+
 struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
 {
     DeclutterSortFunctor* _customSortFunctor;
     MPScreenSpaceSGLayoutContext* _context;
+    boost_polygon geomScreen;
 
     PerObjectFastMap<osg::Camera*, PerCamInfo> _perCam;
 
@@ -193,6 +198,7 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
     MPDeclutterSortSG( MPScreenSpaceSGLayoutContext* context, DeclutterSortFunctor* f = nullptr )
         : _customSortFunctor(f), _context(context)
     {
+        boost::geometry::read_wkt("POLYGON((-1.0 -1.0 , -1.0 1.0 , 1.0 1.0 , 1.0 -1.0, -1.0 -1.0))", geomScreen);
         //nop
     }
 
@@ -451,11 +457,6 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
         //        bool camChanged = camVPW != local._lastCamVPW;
         local._lastCamVPW = camVPW;
         osg::Matrix MVP = cam->getViewMatrix() * cam->getProjectionMatrix();
-        typedef boost::geometry::model::d2::point_xy<double> boost_point;
-        typedef boost::geometry::model::polygon<boost_point> boost_polygon;
-        boost_polygon geomScreen;
-        boost::geometry::read_wkt("POLYGON((-1.0 -1.0 , -1.0 1.0 , 1.0 1.0 , 1.0 -1.0, -1.0 -1.0))", geomScreen);
-
         osg::Vec3f offset;
 
         // Go through each leaf and test for visibility.

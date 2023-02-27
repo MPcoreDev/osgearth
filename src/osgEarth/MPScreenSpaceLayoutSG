@@ -146,7 +146,7 @@ public:
     long       _id{1};
     double     _originalPriority{0.};
     double     _priority{0.};
-    double     _textPolygonAltitude;
+    double     _textPolygonAltitude{DBL_MAX};
     bool       _originalDeclutterActivated{true};
     bool       _declutterActivated{true};
     osg::Vec2s _pixelOffset{0, 0};
