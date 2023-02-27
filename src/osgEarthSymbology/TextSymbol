@@ -76,6 +76,7 @@ public:
     enum PlacementTechnique {
         SCREEN_EDGE_ONLY,
         RIGHT_OR_LEFT_FROM_ICON,
+        POLYGON_VISIBLE,
         NONE
     };
     META_Object(osgEarthSymbology, TextSymbol);
@@ -153,6 +154,10 @@ public:
     /** The viewer altitude at which to start occlusion culling the text */
     optional<double>& occlusionCullAltitude() { return _occlusionCullAltitude; }
     const optional<double>& occlusionCullAltitude() const { return _occlusionCullAltitude; }
+
+    /** The viewer altitude (or lower) at which to start showing text on polygon partially visible */
+    optional<double>& textPolygonAltitude() { return _textPolygonAltitude; }
+    const optional<double>& textPolygonAltitude() const { return _textPolygonAltitude; }
 
     /** Label generation provider to use */
     optional<std::string>& provider() { return _provider; }
@@ -243,6 +248,7 @@ protected:
     optional<bool>              _declutter;
     optional<bool>              _occlusionCull;
     optional<double>            _occlusionCullAltitude;
+    optional<double>            _textPolygonAltitude;
     optional<bool>              _autoOffsetAlongLine;
     optional<PlacementTechnique>_placementTechnique;
     optional<bool>              _autoRotateAlongLine;

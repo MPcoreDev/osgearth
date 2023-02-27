@@ -56,15 +56,21 @@ public:
                               _id(-1),
                               _originalPriority(0.0),
                               _priority(0.0),
+                              _textPolygonAltitude(DBL_MAX),
                               _pixelOffset(0, 0),
                               _autoRotate(false),
                               _autoFollowLine(false),
+                              _instanceIndex(0),
                               _screenClamping(false),
-                              _instanceIndex(0) { }
+                              _polygonVisible(false){ }
 
     /** Decluttering priority - FLT_MAX means don't declutter */
     void setPriority(double value) { _originalPriority = _priority = value; }
     double getPriority() const     { return _priority; }
+
+    /** altitude used to calculate label location on visible part of the polygon */
+    void setTextPolygonAltitude(double value) { _textPolygonAltitude = value; }
+    double getTextPolygonAltitude() const     { return _textPolygonAltitude; }
 
     /** Offset from geoposition in screen pixels */
     void setPixelOffset(const osg::Vec2s& value) { _pixelOffset = value; }
@@ -86,6 +92,14 @@ public:
     void setLineStartPoint(const osg::Vec3d& value) { _lineStart = value; }
     const osg::Vec3d& getLineStartPoint() const { return _lineStart; }
 
+    /** Start world point for automatic placement on a polygon */
+    void setPolygonPoint1(const osg::Vec3d& value) { _poly1 = value; }
+    const osg::Vec3d& getPolygonPoint1() const { return _poly1; }
+
+    /** Start world point for automatic placement on a polygon */
+    void setPolygonPoint2(const osg::Vec3d& value) { _poly2 = value; }
+    const osg::Vec3d& getPolygonPoint2() const { return _poly2; }
+
     /**
      * Stop world point for automatic placement on a line
      * also used as projection point for label rotation reference
@@ -105,6 +119,10 @@ public:
     /** Whether the label shall automatically be clamped to the screen edges */
     void setScreenClamping(bool screenClamping) { _screenClamping = screenClamping; }
     bool screenClamping() const { return _screenClamping; }
+
+    /** Whether the label shall be displayed on the visible part of the polygon */
+    void setPolygonVisible(bool polygonVisible) { _polygonVisible = polygonVisible; }
+    bool polygonVisible() const { return _polygonVisible; }
 
     /** Whether the label can be placed to right or left positions from the icon */
     void setRightLeftPlacementAvail(bool rightLeftPlacementAvail) { _rightLeftPlacementAvail = rightLeftPlacementAvail; }
@@ -128,11 +146,12 @@ public:
     long       _id{1};
     double     _originalPriority{0.};
     double     _priority{0.};
+    double     _textPolygonAltitude{DBL_MAX};
     bool       _originalDeclutterActivated{true};
     bool       _declutterActivated{true};
     osg::Vec2s _pixelOffset{0, 0};
     bool       _autoRotate{false}, _autoFollowLine{false};
-    osg::Vec3d _anchorPoint, _lineStart, _lineEnd;
+    osg::Vec3d _anchorPoint, _lineStart, _lineEnd, _poly1, _poly2;
     osg::BoundingBox    _bbox;
     osg::BoundingSphere _bsphereInitial {osg::Vec3d(0., 0., 0), 0.};
     osg::BoundingBox    _bboxSymetric;
@@ -142,6 +161,7 @@ public:
     PlacementLayout _placementLayout {TEXT_ON_RIGHT};
     bool        _cluttered {false};
     bool        _screenClamping {false};
+    bool        _polygonVisible{false};
     bool        _rightLeftPlacementAvail {false};
 
 public:

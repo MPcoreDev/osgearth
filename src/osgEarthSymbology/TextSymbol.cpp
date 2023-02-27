@@ -48,6 +48,7 @@ TextSymbol::TextSymbol(const TextSymbol& rhs,const osg::CopyOp& copyop):
     _declutter(rhs._declutter),
     _occlusionCull(rhs._occlusionCull),
     _occlusionCullAltitude(rhs._occlusionCullAltitude),
+    _textPolygonAltitude(rhs._textPolygonAltitude),
     _autoOffsetAlongLine(rhs._autoOffsetAlongLine),
     _placementTechnique(rhs._placementTechnique),
     _autoRotateAlongLine(rhs._autoRotateAlongLine),
@@ -79,6 +80,7 @@ TextSymbol::TextSymbol( const Config& conf ) :
     _declutter            ( true ),
     _occlusionCull        ( false ),
     _occlusionCullAltitude( 200000 ),
+    _textPolygonAltitude  ( 1000 ),
     _autoOffsetAlongLine  ( false ),
     _autoRotateAlongLine  ( false ),
     _attachedLabel        ( false ),
@@ -158,6 +160,8 @@ TextSymbol::getConfig() const
 
     conf.set( "text-occlusion-cull", _occlusionCull );
     conf.set( "text-occlusion-cull-altitude", _occlusionCullAltitude );
+
+    conf.set( "text-polygon-altitude", _textPolygonAltitude );
 
     conf.set( "auto-offset-alongline", _autoOffsetAlongLine);
     
@@ -249,6 +253,8 @@ TextSymbol::mergeConfig( const Config& conf )
 
     conf.get( "text-occlusion-cull", _occlusionCull );
     conf.get( "text-occlusion-cull-altitude", _occlusionCullAltitude );
+
+    conf.get( "text-polygon-altitude", _textPolygonAltitude );
 
     conf.get( "auto-offset-alongline", _autoOffsetAlongLine );
     
@@ -403,6 +409,9 @@ TextSymbol::parseSLD(const Config& c, Style& style)
     else if ( match(c.key(), "text-occlusion-cull-altitude") ) {
         style.getOrCreate<TextSymbol>()->occlusionCullAltitude() = as<double>(c.value(), defaults.occlusionCullAltitude().get() );
     }
+    else if ( match(c.key(), "text-polygon-altitude") ) {
+        style.getOrCreate<TextSymbol>()->textPolygonAltitude() = as<double>(c.value(), defaults.textPolygonAltitude().get() );
+    }
     else if ( match(c.key(), "text-script") ) {
         style.getOrCreate<TextSymbol>()->script() = StringExpression(c.value());
     }
@@ -426,6 +435,8 @@ TextSymbol::parseSLD(const Config& c, Style& style)
             style.getOrCreate<TextSymbol>()->placementTechnique() = TextSymbol::SCREEN_EDGE_ONLY;
         else if (match(c.value(), "right-or-left-from-icon"))
             style.getOrCreate<TextSymbol>()->placementTechnique() = TextSymbol::RIGHT_OR_LEFT_FROM_ICON;
+        else if (match(c.value(), "polygon-visible"))
+            style.getOrCreate<TextSymbol>()->placementTechnique() = TextSymbol::POLYGON_VISIBLE;
         else
             style.getOrCreate<TextSymbol>()->placementTechnique() = TextSymbol::NONE;
     }

@@ -26,6 +26,12 @@
 #include <osg/LineSegment>
 #include <osgEarth/GeoMath>
 #include <osgEarth/GeoData>
+#include <boost/any.hpp>
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/polygon.hpp>
+#include <boost/geometry/geometries/point_xy.hpp>
+#include <boost/foreach.hpp>
+
 
 // -----------------------------------------------------------
 // This class is mainly copied from ScreenSpaceLayout.cpp
@@ -172,10 +178,15 @@ struct LCGIterator
  * soon as one passes the occlusion test, all its siblings will automatically
  * pass as well.
  */
+
+typedef boost::geometry::model::d2::point_xy<double> boost_point;
+typedef boost::geometry::model::polygon<boost_point> boost_polygon;
+
 struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
 {
     DeclutterSortFunctor* _customSortFunctor;
     MPScreenSpaceSGLayoutContext* _context;
+    boost_polygon geomScreen;
 
     PerObjectFastMap<osg::Camera*, PerCamInfo> _perCam;
 
@@ -187,6 +198,7 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
     MPDeclutterSortSG( MPScreenSpaceSGLayoutContext* context, DeclutterSortFunctor* f = nullptr )
         : _customSortFunctor(f), _context(context)
     {
+        boost::geometry::read_wkt("POLYGON((-1.0 -1.0 , -1.0 1.0 , 1.0 1.0 , 1.0 -1.0, -1.0 -1.0))", geomScreen);
         //nop
     }
 
@@ -418,6 +430,8 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
         cam->getViewMatrixAsLookAt(eye, center, up);
         look = center - eye;
         look.normalize();
+        double currentAltitude;
+        cam->getUserValue("altitude", currentAltitude);
 
         int screenMapNbCol = options.screenGridNbCol().get();
         int screenMapNbRow = options.screenGridNbRow().get();
@@ -442,7 +456,7 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
         // has the camera moved?
         //        bool camChanged = camVPW != local._lastCamVPW;
         local._lastCamVPW = camVPW;
-
+        osg::Matrix MVP = cam->getViewMatrix() * cam->getProjectionMatrix();
         osg::Vec3f offset;
 
         // Go through each leaf and test for visibility.
@@ -453,8 +467,9 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
         {
             osgUtil::RenderLeaf* leaf = *i;
             if ( ! leaf->_drawable.valid() )
+            {
                 continue;
-
+            }
             MPScreenSpaceGeometry* annoDrawable = static_cast<MPScreenSpaceGeometry*>(leaf->_drawable.get());
 
             // transform the bounding box of the drawable into window-space.
@@ -482,14 +497,75 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
                 updateOffsetForAutoLabelOnLine(box, vp, annoDrawable->_cull_anchorOnScreen, annoDrawable, camVPW, slidingOffset, to);
                 annoDrawable->_cull_anchorOnScreen += slidingOffset;
             }
-            
+
+            // Computes label location for the grid mora (visible part of the polygon)
+            if (annoDrawable->polygonVisible())
+            {
+                double maxAlt = annoDrawable->getTextPolygonAltitude();
+                if (currentAltitude > maxAlt)
+                {
+                    visible = true;
+                }
+                else
+                {
+                    visible = false;
+                    // use the centroid to display the label if visible
+                    osg::Vec3d centroid = annoDrawable->getAnchorPoint() * MVP;
+                    double lim = 1.0;
+                    if (centroid.x() > -lim && centroid.x() < lim &&
+                            centroid.y() > -lim && centroid.y() < lim )
+                    {
+                        visible = true;
+                    }
+                    else
+                    {
+                        osg::Vec3d pc[5];
+                        pc[0] = annoDrawable->getLineStartPoint()* MVP;
+                        pc[2] = annoDrawable->getLineEndPoint()* MVP;
+                        pc[1] = annoDrawable->getPolygonPoint1()* MVP;
+                        pc[3] = annoDrawable->getPolygonPoint2()* MVP;
+                        pc[4] = pc[0];      // to close the polygon (repeat 1st point)
+
+                        boost_polygon geom;
+
+                        for (int i=0;i<5 ;i++)// build the mora geometry
+                        {
+                            boost::geometry::append(geom.outer(),boost_point(pc[i].x(),pc[i].y()));
+                        }
+
+                        std::deque<boost_polygon> output;
+
+                        bool onTheScreen = boost::geometry::intersection(geomScreen.outer(), geom.outer(), output);
+                        if (onTheScreen)
+                        {
+                            double area;
+                            boost_point centre;
+
+                            BOOST_FOREACH(boost_polygon const& geomInter, output)
+                            {
+                                area = boost::geometry::area(geomInter);
+                                if (area >.005)
+                                {
+                                    boost::geometry::centroid(geomInter,centre);
+                                    osg::Vec3d center3d( centre.x(),centre.y(), 1);
+
+                                    annoDrawable->_cull_anchorOnScreen = center3d * windowMatrix;
+                                    visible = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            //  ***** end of grid mora's label computation
+
+
             // computes the clamped labels (used for graticules)
             if (annoDrawable->screenClamping())
             {
                 const osgEarth::SpatialReference* srs = osgEarth::SpatialReference::create("epsg:4326");
                 
                 // Calculate the "clip to world" matrix = MVPinv.
-                osg::Matrix MVP = cam->getViewMatrix() * cam->getProjectionMatrix();
                 osg::Matrix MVPinv;
                 MVPinv.invert(MVP);
 
@@ -571,7 +647,7 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
 
                         gp3.set(srs,osg::RadiansToDegrees(lo),osg::RadiansToDegrees(la),0,AltitudeMode::ALTMODE_ABSOLUTE);
                         gp3.toWorld(to);
-                        
+
                         // hide labels that are on the other side of the globe
                         if((eye-to).length2()>eye.length2()) //on the other side of earth
                         {
@@ -579,6 +655,7 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
                         }
 
                         annoDrawable->_cull_anchorOnScreen = to*MVP;
+
                         if( annoDrawable->_cull_anchorOnScreen.isNaN())
                         { //sometimes, the computed intersection lands outside of screen space which can produce a NaN coordinates
                             visible = false;
@@ -659,13 +736,7 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
                     mapEndY = osg::clampTo(static_cast<int>(floor((box.yMax() - vpYMin) / mapSizeY)), 0, screenMapNbRow-1);
                 }
 
-                // A max priority => always display
-                if ( annoDrawable->_priority == DBL_MAX || ! annoDrawable->_declutterActivated)
-                {
-                    visible = true;
-                }
-
-                else
+                if ( annoDrawable->_priority != DBL_MAX && annoDrawable->_declutterActivated)
                 {
                     // declutter only on screen cells that intersects the current bbox cells
                     if ( useScreenGrid )
@@ -768,7 +839,6 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
                 local._used.push_back( box );
                 local._passed.push_back( leaf );
             }
-
             osg::Matrix newModelView;
             newModelView.makeTranslate(annoDrawable->_cull_anchorOnScreen.x(), annoDrawable->_cull_anchorOnScreen.y(), 0);
 
