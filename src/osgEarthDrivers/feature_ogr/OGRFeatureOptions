@@ -39,9 +39,13 @@ namespace osgEarth { namespace Drivers
         optional<std::string>& centerWKT() { return _centerWKT; }
         const optional<std::string>& centerWKT() const { return _centerWKT; }
 
-        /** radius of the circle. */
+        /** radius of the main circle. */
         optional<Distance>& radius() { return _radius; }
         const optional<Distance>& radius() const { return _radius; }
+
+        /** radius for the second circle. */
+        optional<Distance>& radius2() { return _radius2; }
+        const optional<Distance>& radius2() const { return _radius2; }
 
         /** the number of segment to tesselate the circle. */
         optional<unsigned int>& numSegments() { return _numSegments; }
@@ -52,6 +56,7 @@ namespace osgEarth { namespace Drivers
             Config conf = ConfigOptions::getConfig();
             conf.set("center", _centerWKT);
             conf.set("radius", _radius);
+            conf.set("radius2", _radius2);
             conf.set("num_segments", _numSegments);
             return conf;
         }
@@ -61,11 +66,13 @@ namespace osgEarth { namespace Drivers
         {
             conf.get("center", _centerWKT);
             conf.get("radius", _radius);
+            conf.get("radius2", _radius2);
             conf.get("num_segments", _numSegments);
         }
 
         optional<std::string>  _centerWKT;
         optional<Distance>     _radius;
+        optional<Distance>     _radius2;
         optional<unsigned int> _numSegments;
     };
 

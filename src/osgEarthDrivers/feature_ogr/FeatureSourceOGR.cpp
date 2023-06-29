@@ -628,7 +628,7 @@ protected:
         return 0L;
     }
 
-    // build a circle.
+    // build a circle (potentially 2 circles with two distinct radius but same center)
     Symbology::Geometry* parseCircle( const CircleOptions& circleOpt )
     {
         osg::ref_ptr<Geometry> center;
@@ -637,14 +637,34 @@ protected:
             center = GeometryUtils::geometryFromWKT(*circleOpt.centerWKT());
         }
 
+        osgEarth::Symbology::GeometryFactory factory(SpatialReference::create("wgs84"));
+
+        // circle 1
+        Geometry* mainCircle = nullptr;
         if (center.valid() && circleOpt.radius().isSet())
         {
-            osgEarth::Symbology::GeometryFactory factory(SpatialReference::create("wgs84"));
             unsigned int numSegments = circleOpt.numSegments().getOrUse(0u);
-            return factory.createCircle(center->getCentroid(), *circleOpt.radius(), numSegments);
+            mainCircle = factory.createCircle(center->getCentroid(), *circleOpt.radius(), numSegments);
         }
 
-        return 0L;
+        // circle 2
+        Geometry* secondCircle = nullptr;
+        if (center.valid() && circleOpt.radius2().isSet())
+        {
+            unsigned int numSegments = circleOpt.numSegments().getOrUse(0u);
+            secondCircle = factory.createCircle(center->getCentroid(), *circleOpt.radius2(), numSegments);
+        }
+
+        // add the circles to a MultiGeometry if both radius are defined
+        if (mainCircle && secondCircle)
+        {
+            MultiGeometry* circles = new MultiGeometry();
+            circles->add( mainCircle );
+            circles->add( secondCircle );
+            return circles;
+        }
+
+        return mainCircle ? mainCircle : secondCircle;
     }
 
     // build multiple circles
