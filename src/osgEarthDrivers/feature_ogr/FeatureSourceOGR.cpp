@@ -639,32 +639,26 @@ protected:
 
         osgEarth::Symbology::GeometryFactory factory(SpatialReference::create("wgs84"));
 
-        // circle 1
-        Geometry* mainCircle = nullptr;
+        unsigned int numSegments = circleOpt.numSegments().getOrUse(0u);
+
+        // circle 1 : outer ring of the polygon
+        Polygon* output = nullptr;
         if (center.valid() && circleOpt.radius().isSet())
         {
-            unsigned int numSegments = circleOpt.numSegments().getOrUse(0u);
-            mainCircle = factory.createCircle(center->getCentroid(), *circleOpt.radius(), numSegments);
+            output = static_cast<Polygon*>(factory.createCircle(center->getCentroid(), *circleOpt.radius(), numSegments));
         }
 
-        // circle 2
-        Geometry* secondCircle = nullptr;
+        // circle 2 : inner ring of the polygon (or main polygon if circle 1 was not defined)
         if (center.valid() && circleOpt.radius2().isSet())
         {
-            unsigned int numSegments = circleOpt.numSegments().getOrUse(0u);
-            secondCircle = factory.createCircle(center->getCentroid(), *circleOpt.radius2(), numSegments);
+            Polygon* r = static_cast<Polygon*>(factory.createCircle(center->getCentroid(), *circleOpt.radius2(), numSegments));
+            if (output)
+                output->getHoles().push_back(r);
+            else
+                output = r;
         }
 
-        // add the circles to a MultiGeometry if both radius are defined
-        if (mainCircle && secondCircle)
-        {
-            MultiGeometry* circles = new MultiGeometry();
-            circles->add( mainCircle );
-            circles->add( secondCircle );
-            return circles;
-        }
-
-        return mainCircle ? mainCircle : secondCircle;
+        return output;
     }
 
     // build multiple circles
