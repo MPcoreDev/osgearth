@@ -75,7 +75,7 @@ public:
 public:
 
     // Add an annotation (list of drawables corresponding to one feature)
-    virtual long addAnnotation(const Style& style, Geometry *geom, const osgDB::Options* readOptions, unsigned long long instanceIndex=0) override;
+    virtual long addAnnotation(const Style& style, Geometry *geom, const osgDB::Options* readOptions, unsigned long long instanceIndex=0, const std::string& text=std::string()) override;
 
     // Highlight an Annotation
     virtual void setHighlight( long id, bool highlight = true ) override;

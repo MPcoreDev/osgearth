@@ -446,18 +446,20 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
         const float outAnimationTime = *options.outAnimationTime();
         bool needRedraw = false;
 
-        //        bool snapToPixel = options.snapToPixel() == true;
-
         osg::Matrix camVPW;
         camVPW.postMult(cam->getViewMatrix());
         camVPW.postMult(cam->getProjectionMatrix());
         camVPW.postMult(windowMatrix);
+        osg::Matrix camMV = cam->getViewMatrix();
 
         // has the camera moved?
         //        bool camChanged = camVPW != local._lastCamVPW;
         local._lastCamVPW = camVPW;
         osg::Matrix MVP = cam->getViewMatrix() * cam->getProjectionMatrix();
         osg::Vec3f offset;
+
+        osg::Matrix ortho2D;
+        ortho2D.makeOrtho( vp->x(), vp->x()+vp->width()-1, vp->y(), vp->y()+vp->height()-1, -1000, 1000);
 
         // Go through each leaf and test for visibility.
         // Enforce the "max objects" limit along the way.
@@ -848,7 +850,16 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
             // Leaf modelview matrixes are shared (by objects in the traversal stack) so we
             // cannot just replace it unfortunately. Have to make a new one. Perhaps a nice
             // allocation pool is in order here
-            leaf->_modelview = new osg::RefMatrix(newModelView);
+            if (! annoDrawable->_placementInsideCircle )
+            {
+                leaf->_modelview = new osg::RefMatrix(newModelView);
+                leaf->_projection = new osg::RefMatrix(ortho2D);
+            }
+            else
+            {
+                leaf->_modelview = new osg::RefMatrix(camMV);
+                leaf->_projection = new osg::RefMatrix(cam->getProjectionMatrix());
+            }
 
         } // end for each leaf
 
@@ -996,21 +1007,6 @@ struct MPDeclutterDraw : public osgUtil::RenderBin::DrawCallback
             state.insertStateSet(insertStateSetPosition, bin->getStateSet());
         }
 
-        // apply a window-space projection matrix.
-        const osg::Viewport* vp = renderInfo.getCurrentCamera()->getViewport();
-        if ( vp )
-        {
-            //TODO see which is faster
-
-            osg::ref_ptr<osg::RefMatrix>& m = _ortho2D.get();
-            if ( !m.valid() )
-                m = new osg::RefMatrix();
-
-            //m->makeOrtho2D( vp->x(), vp->x()+vp->width()-1, vp->y(), vp->y()+vp->height()-1 );
-            m->makeOrtho( vp->x(), vp->x()+vp->width()-1, vp->y(), vp->y()+vp->height()-1, -1000, 1000);
-            state.applyProjectionMatrix( m.get() );
-        }
-
         // render the list
         osgUtil::RenderBin::RenderLeafList& leaves = bin->getRenderLeafList();
 
@@ -1048,6 +1044,7 @@ struct MPDeclutterDraw : public osgUtil::RenderBin::DrawCallback
         }
 
         state.applyModelViewMatrix( leaf->_modelview.get() );
+        state.applyProjectionMatrix( leaf->_projection.get() );
 
         if (previous)
         {

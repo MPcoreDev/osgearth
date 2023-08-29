@@ -163,6 +163,11 @@ public:
     bool        _screenClamping {false};
     bool        _polygonVisible{false};
     bool        _rightLeftPlacementAvail {false};
+    std::vector<osg::Vec3d> _anchorCandidates;
+    osg::observer_ptr<osg::Vec3Array> _circleCenter {nullptr};
+
+    // for placement in a circle
+    bool        _placementInsideCircle{false};
 
 public:
     // computed at cull step

@@ -1,4 +1,6 @@
 
+#include "osg/Quat"
+#include <cfloat>
 #include <osgEarthAnnotation/MPAnnotationDrawable>
 #include <osgEarthSymbology/InstanceSymbol>
 #include <osgEarth/Registry>
@@ -66,7 +68,7 @@ void ScreenSpaceDrawElements::draw(osg::State& state, bool useVertexBufferObject
 }
 
 
-MPAnnotationDrawable::MPAnnotationDrawable(const Style &style, const osgDB::Options* readOptions, MPStateSetFontAltas* atlasStateSet )
+MPAnnotationDrawable::MPAnnotationDrawable(const Style &style, const osgDB::Options* readOptions, MPStateSetFontAltas* atlasStateSet, const std::string& text)
     : _readOptions(readOptions), _stateSetFontAltas(atlasStateSet)
 {
     setUseVertexBufferObjects(true);
@@ -105,7 +107,7 @@ MPAnnotationDrawable::MPAnnotationDrawable(const Style &style, const osgDB::Opti
         setRightLeftPlacementAvail(true);
 
     // actually build the vertices, primitives, colors...
-    buildGeometry(style);
+    buildGeometry(style, text);
 
     // shift all vertices if pixel-offset is defined
     if ( textSymbol && textSymbol->pixelOffset().isSet() )
@@ -125,7 +127,7 @@ MPAnnotationDrawable::MPAnnotationDrawable(const Style &style, const osgDB::Opti
 //    }
 }
 
-void MPAnnotationDrawable::buildGeometry(const osgEarth::Symbology::Style& style)
+void MPAnnotationDrawable::buildGeometry(const osgEarth::Symbology::Style& style, const std::string& textOverride)
 {
     _v = new osg::Vec3Array();
     _c = new osg::Vec4Array();
@@ -204,7 +206,7 @@ void MPAnnotationDrawable::buildGeometry(const osgEarth::Symbology::Style& style
     bool predefinedOrganisation = textSymbol && textSymbol->predefinedOrganisation().isSet();
     if ( textSymbol )
     {
-        std::string mainText = textSymbol->content()->eval();
+        std::string mainText = textOverride.empty() ? textSymbol->content()->eval() : textOverride;
         StringTokenizer splitter( ";", "" );
         splitter.tokenize( mainText, textList );
         if (! textList.empty() )
@@ -571,6 +573,14 @@ void MPAnnotationDrawable::buildGeometry(const osgEarth::Symbology::Style& style
     setColorArray( _c.get(), osg::Array::BIND_PER_VERTEX );
     setVertexAttribArray( MPStateSetFontAltas::ATTRIB_ANNO_INFO, _infoArray.get(), osg::Array::BIND_PER_VERTEX );
     setVertexAttribArray( MPStateSetFontAltas::ATTRIB_ANNO_COLOR2, _c2.get(), osg::Array::BIND_PER_VERTEX );
+
+    if (! _placementInsideCircle)
+    {
+        _circleCenter = new osg::Vec3Array(osg::Array::BIND_OVERALL, 1);
+        (*_circleCenter)[0].set(0., 0., 0.);
+        setVertexAttribArray( MPStateSetFontAltas::ATTRIB_ANNO_CIRCLE_CENTER, _circleCenter.get(), osg::Array::BIND_OVERALL );
+    }
+
     addPrimitiveSet( _d.get() );
 
     if ( getVertexArray()->getVertexBufferObject() )
@@ -963,6 +973,17 @@ void MPAnnotationDrawable::moveTextPosition(int nbVertices, const osg::BoundingB
         doTranslation = true;
     }
 
+    // horizontal : center of the ref
+    // vertical : bottom of the ref
+    else if ( alignment == TextSymbol::Alignment::ALIGN_CENTER_BOTTOM )
+    {
+        osg::Vec3 textCenter(textBBox.center());
+        osg::Vec3 refCenter(refBBox.center());
+        translate = - textCenter + refCenter;
+        translate.y() = 0;
+        doTranslation = true;
+    }
+
     // horizontal : right of the ref
     // vertical : center of the ref
     else if ( alignment == TextSymbol::Alignment::ALIGN_LEFT_CENTER )
@@ -1172,9 +1193,25 @@ void MPAnnotationDrawable::setInverted(bool inverted)
 
     _v = static_cast<osg::Vec3Array*>(getVertexArray());
 
-    for ( auto i : _rot_verticesToInvert )
+    if (! _placementInsideCircle)
     {
-        (*_v)[i] = - (*_v)[i];
+        for ( auto i : _rot_verticesToInvert )
+        {
+            (*_v)[i] = - (*_v)[i];
+        }
+    }
+    else
+    {
+        double yMax = DBL_MIN;
+        for ( int i = 0 ; i < _v->size() ; ++i )
+        {
+            if ((*_v)[i].y() > yMax) yMax = (*_v)[i].y();
+            (*_v)[i] = - (*_v)[i];
+        }
+        for ( int i = 0 ; i < _v->size() ; ++i )
+        {
+            (*_v)[i].y() += yMax;
+        }
     }
 
     for ( const auto& shiftData : _rot_verticesToShift )
@@ -1307,9 +1344,73 @@ void MPAnnotationDrawable::setPlacementLayout( MPScreenSpaceGeometry::PlacementL
     _placementLayout = placementLayout;
 }
 
+void MPAnnotationDrawable::updateCircleGeometry(const Symbology::Geometry* geom )
+{
+    if (! geom || geom->getComponentType() != Symbology::Geometry::TYPE_POLYGON)
+    {
+        OE_WARN << LC << "updateCircleGeometry is called with a non polygon geometry\n";
+        return;
+    }
+
+    osg::ref_ptr<const Polygon> geomPolygon = nullptr;
+    if (geom->getType() == Symbology::Geometry::TYPE_MULTI)
+    {
+        const MultiGeometry* geomMulti = dynamic_cast<const MultiGeometry*>(geom);
+        geomPolygon = dynamic_cast<const Polygon*>(geomMulti->getComponents().front().get());
+    }
+    else
+    {
+        geomPolygon = dynamic_cast<const Polygon*>( geom );
+    }
+
+    if (! geomPolygon)
+    {
+        OE_WARN << LC << "Error while parsing polygon as circle\n";
+        return;
+    }
+
+    osg::Vec3d centroid{0., 0., 0.};
+    unsigned int nbPoints = 0;
+    osg::Vec3d posWorld;
+    for(const auto& point : *geomPolygon)
+    {
+        GeoPoint pos( osgEarth::SpatialReference::get("wgs84"), point.x(), point.y(), point.z(), ALTMODE_ABSOLUTE );
+        pos.toWorld(posWorld);
+        centroid += posWorld;
+        ++nbPoints;
+    }
+
+    centroid /= nbPoints;
+
+    _circleCenter = new osg::Vec3Array(osg::Array::BIND_OVERALL, 1);
+    (*_circleCenter)[0].set(centroid);
+    setVertexAttribArray( MPStateSetFontAltas::ATTRIB_ANNO_CIRCLE_CENTER, _circleCenter.get(), osg::Array::BIND_OVERALL );
+
+    osg::Vec3d first{geomPolygon->front()};
+    GeoPoint posGeo( osgEarth::SpatialReference::get("wgs84"), first.x(), first.y(), first.z(), ALTMODE_ABSOLUTE );
+    posGeo.toWorld(posWorld);
+
+    _circleAnchor = new osg::Vec3Array(osg::Array::BIND_OVERALL, 1);
+    (*_circleAnchor)[0].set(posWorld);
+    setVertexAttribArray( MPStateSetFontAltas::ATTRIB_ANNO_CIRCLE_ANCHOR, _circleAnchor.get(), osg::Array::BIND_OVERALL );
+
+    // create 8 anchor candidates in [0, PI[
+    osg::Vec3d axis(centroid);
+    axis.normalize();
+    for (int i = 0 ; i < 8 ; ++i)
+    {
+        osg::Quat quat(osg::PI * i / 4., axis);
+        _anchorCandidates.emplace_back(quat*posWorld);
+    }
+
+    _placementInsideCircle = true;
+    updateGeometry( posGeo, DBL_MAX );
+}
+
 void MPAnnotationDrawable::updateGeometry(const Symbology::Geometry *geom, double geographicCourse )
 {
-    const osg::Vec3d center = geom->getCentroid();
+    const osg::Vec3d center{geom->getCentroid()};
+
     GeoPoint pos( osgEarth::SpatialReference::get("wgs84"), center.x(), center.y(), center.z(), ALTMODE_ABSOLUTE );
     updateGeometry( pos, geographicCourse );
 }
