@@ -451,6 +451,8 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
         camVPW.postMult(cam->getProjectionMatrix());
         camVPW.postMult(windowMatrix);
         osg::Matrix camMV = cam->getViewMatrix();
+        osg::ref_ptr<osg::RefMatrix> camMVRef = new osg::RefMatrix(camMV);
+        osg::ref_ptr<osg::RefMatrix> camProjRef = new osg::RefMatrix(cam->getProjectionMatrix());
 
         // has the camera moved?
         //        bool camChanged = camVPW != local._lastCamVPW;
@@ -460,6 +462,7 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
 
         osg::Matrix ortho2D;
         ortho2D.makeOrtho( vp->x(), vp->x()+vp->width()-1, vp->y(), vp->y()+vp->height()-1, -1000, 1000);
+        osg::ref_ptr<osg::RefMatrix> ortho2DRef = new osg::RefMatrix(ortho2D);
 
         // Go through each leaf and test for visibility.
         // Enforce the "max objects" limit along the way.
@@ -853,12 +856,12 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
             if (! annoDrawable->_placementInsideCircle )
             {
                 leaf->_modelview = new osg::RefMatrix(newModelView);
-                leaf->_projection = new osg::RefMatrix(ortho2D);
+                leaf->_projection = ortho2DRef;
             }
             else
             {
-                leaf->_modelview = new osg::RefMatrix(camMV);
-                leaf->_projection = new osg::RefMatrix(cam->getProjectionMatrix());
+                leaf->_modelview = camMVRef;
+                leaf->_projection = camProjRef;
             }
 
         } // end for each leaf

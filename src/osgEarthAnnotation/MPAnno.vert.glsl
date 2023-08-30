@@ -84,7 +84,8 @@ void oe_anno_VS(inout vec4 vertex)
     }
 
     // Place label along circle
-    if ( oe_anno_attr_circle_center != vec3(0., 0., 0.) )
+    // (FLT_MAX is used for standard labels)
+    else if ( oe_anno_attr_circle_center.x < 10000000 )
     {
         float x = vertex.x * mp_local2pixel;
         float y = (oe_anno_info.y-vertex.y) * mp_local2pixel;

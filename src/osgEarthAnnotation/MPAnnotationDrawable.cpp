@@ -577,7 +577,7 @@ void MPAnnotationDrawable::buildGeometry(const osgEarth::Symbology::Style& style
     if (! _placementInsideCircle)
     {
         _circleCenter = new osg::Vec3Array(osg::Array::BIND_OVERALL, 1);
-        (*_circleCenter)[0].set(0., 0., 0.);
+        (*_circleCenter)[0].set(FLT_MAX, FLT_MAX, FLT_MAX);
         setVertexAttribArray( MPStateSetFontAltas::ATTRIB_ANNO_CIRCLE_CENTER, _circleCenter.get(), osg::Array::BIND_OVERALL );
     }
 
