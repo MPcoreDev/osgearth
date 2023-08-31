@@ -1,5 +1,4 @@
 
-#include "osg/Quat"
 #include <cfloat>
 #include <osgEarthAnnotation/MPAnnotationDrawable>
 #include <osgEarthSymbology/InstanceSymbol>
@@ -1369,6 +1368,7 @@ void MPAnnotationDrawable::updateCircleGeometry(const Symbology::Geometry* geom 
         return;
     }
 
+    // compute world center of the circle and push anchor candidates
     osg::Vec3d centroid{0., 0., 0.};
     unsigned int nbPoints = 0;
     osg::Vec3d posWorld;
@@ -1378,6 +1378,9 @@ void MPAnnotationDrawable::updateCircleGeometry(const Symbology::Geometry* geom 
         pos.toWorld(posWorld);
         centroid += posWorld;
         ++nbPoints;
+        _anchorCandidates.push_back(posWorld);
+        _bboxFullCandidates.expandBy(posWorld);
+        _bSphereFullCandidates.expandBy(posWorld);
     }
 
     centroid /= nbPoints;
@@ -1393,15 +1396,6 @@ void MPAnnotationDrawable::updateCircleGeometry(const Symbology::Geometry* geom 
     _circleAnchor = new osg::Vec3Array(osg::Array::BIND_OVERALL, 1);
     (*_circleAnchor)[0].set(posWorld);
     setVertexAttribArray( MPStateSetFontAltas::ATTRIB_ANNO_CIRCLE_ANCHOR, _circleAnchor.get(), osg::Array::BIND_OVERALL );
-
-    // create 8 anchor candidates in [0, PI[
-    osg::Vec3d axis(centroid);
-    axis.normalize();
-    for (int i = 0 ; i < 8 ; ++i)
-    {
-        osg::Quat quat(osg::PI * i / 4., axis);
-        _anchorCandidates.emplace_back(quat*posWorld);
-    }
 
     _placementInsideCircle = true;
     updateGeometry( posGeo, DBL_MAX );

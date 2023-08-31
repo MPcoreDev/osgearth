@@ -44,14 +44,14 @@ void oe_LineDrawable_VS_VIEW(inout vec4 currView)
     // were GPU-clamped or otherwise permuted in another shader component.)
     vec4 originalView = gl_ModelViewMatrix * gl_Vertex;
     vec4 deltaView = currView - originalView;
-    
+
     // calculate prev/next points in post-transform view space:
     oe_LineDrawable_prevView = gl_ModelViewMatrix * vec4(oe_LineDrawable_prev,1) + deltaView;
     oe_LineDrawable_nextView = gl_ModelViewMatrix * vec4(oe_LineDrawable_next,1) + deltaView;
-       
+
     // here we compute the orientation of the 3 line vertices relative to the earth center to do backface culling  
  
-    vec4 earthCenterView=osg_ViewMatrix *vec4(0.0,0.0,0.0,1.0); //compute the earth view center with the view matrix
+    vec4 earthCenterView=osg_ViewMatrix * vec4(0.0,0.0,0.0,1.0); //compute the earth view center with the view matrix
     //this normal computation is done in the shader side to avoid transmitting a normal array 
     vec4 prevNorm=oe_LineDrawable_prevView-earthCenterView;
     vec4 nextNorm=oe_LineDrawable_nextView-earthCenterView;

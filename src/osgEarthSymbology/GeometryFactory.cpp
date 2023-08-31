@@ -41,7 +41,7 @@ GeometryFactory::createCircle(const osg::Vec3d& center,
     if ( numSegments == 0 )
     {
         // automatically calculate
-        double segLen = radius.as(Units::METERS) / 8.0;
+        double segLen = radius.as(Units::METERS) / 36.0;
         double circumference = 2*osg::PI*radius.as(Units::METERS);
         numSegments = (unsigned)::ceil(circumference / segLen);
     }

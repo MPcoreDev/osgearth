@@ -47,10 +47,10 @@ void mp_MPLineDrawable_VS_MODEL(inout vec4 vertex)
     // compute the length of the side vector
     if (mp_MPLineDrawable_backFaceCulled == 0)
     {
-        vertex.xyz += mp_MPLineDrawable_side * (widthByTwo*mp_local2pixel);
+        vertex.xyz -= mp_MPLineDrawable_side * (widthByTwo*mp_local2pixel);
         if (oe_MPPatternThreshold > 0.)
         {
-            vertex.xyz += mp_MPLineDrawable_length.y * mp_MPLineDrawable_side * ( (widthByTwo-oe_MPPatternThreshold*widthByTwo) * mp_local2pixel);
+            vertex.xyz -= mp_MPLineDrawable_length.y * mp_MPLineDrawable_side * ( (widthByTwo-oe_MPPatternThreshold*widthByTwo) * mp_local2pixel);
             _length.y = (1. + mp_MPLineDrawable_length.y) * widthByTwo;
         }
         else

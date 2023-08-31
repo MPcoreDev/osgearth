@@ -17,7 +17,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 
-#include "osg/Viewport"
 #include "osgEarth/Notify"
 #include <algorithm>
 #include <osgEarthAnnotation/MPAnnotationGroupSG>
@@ -30,6 +29,7 @@
 #include <osgEarth/GLUtils>
 #include <osgEarthFeatures/GeometryUtils>
 #include <osg/Depth>
+
 #define LC "[MPAnnotationGroupSG] "
 
 using namespace osgEarth;
@@ -70,6 +70,11 @@ namespace
                 float vpXmax = cullVisitor->getViewport()->x() + cullVisitor->getViewport()->width();
                 float vpYmin = cullVisitor->getViewport()->y();
                 float vpYmax = cullVisitor->getViewport()->y() + cullVisitor->getViewport()->height();
+                const float margin = 15.;
+                float vpXminWithMargin = vpXmin + margin;
+                float vpXmaxWithMargin = vpXmax - margin;
+                float vpYminWithMargin = vpYmin + margin;
+                float vpYmaxWithMargin = vpYmax - margin;
                 double alt = DBL_MAX;
                 cullVisitor->getCurrentCamera()->getUserValue("altitude", alt);
                 float eyePointLength2 = _backCull ? cullVisitor->getEyePoint().length2() : 0.;
@@ -110,26 +115,39 @@ namespace
                     // check multiple candidates case
                     if (! annoDrawable->_anchorCandidates.empty())
                     {
-                        searchForOtherCandidates |= ! inViewport(vpXmin, vpXmax, vpYmin, vpYmax, annoDrawable->_cull_anchorOnScreen);
+                        searchForOtherCandidates |= ! inViewport(vpXminWithMargin, vpXmaxWithMargin, vpYminWithMargin, vpYmaxWithMargin, annoDrawable->_cull_anchorOnScreen);
 
                         if (searchForOtherCandidates)
                         {
+                            bool hides = true;
+                            osg::Vec3d newAnchor;
                             osg::Vec3d newAnchorOnScreen;
-                            auto bestCandidate = std::find_if(annoDrawable->_anchorCandidates.begin(), annoDrawable->_anchorCandidates.end(),
-                                [&](const osg::Vec3d& candidate) {
-                                    newAnchorOnScreen = candidate * MVPW;
-                                    return inViewport(vpXmin, vpXmax, vpYmin, vpYmax, newAnchorOnScreen) &&
-                                        (! _backCull || (cullVisitor->getEyePoint() - candidate).length2() < eyePointLength2);
-                                });
-
-                            if (bestCandidate != annoDrawable->_anchorCandidates.end())
+                            // do culling through a bounding box and a bounding sphere for better accuracy
+                            if (! cullVisitor->isCulled(annoDrawable->_bboxFullCandidates) && ! cullVisitor->isCulled(annoDrawable->_bSphereFullCandidates))
                             {
-                                annoDrawable->setAnchorPoint(*bestCandidate);
+                                auto bestCandidate = std::find_if(annoDrawable->_anchorCandidates.begin(), annoDrawable->_anchorCandidates.end(),
+                                    [&](const osg::Vec3d& candidate) {
+                                        newAnchorOnScreen = candidate * MVPW;
+                                        return inViewport(vpXminWithMargin, vpXmaxWithMargin, vpYminWithMargin, vpYmaxWithMargin, newAnchorOnScreen) &&
+                                            (! _backCull || (cullVisitor->getEyePoint() - candidate).length2() < eyePointLength2);
+                                    });
+
+                                if (bestCandidate != annoDrawable->_anchorCandidates.end())
+                                {
+                                    newAnchor = *bestCandidate;
+                                    hides = false;
+                                }
+                            }
+
+                            if (! hides)
+                            {
+                                annoDrawable->setAnchorPoint(newAnchor);
                                 annoDrawable->_cull_anchorOnScreen = newAnchorOnScreen;
+
                                 if (annoDrawable->_placementInsideCircle)
                                 {
                                     auto v = static_cast<osg::Vec3Array*>(annoDrawable->getVertexAttribArray(MPStateSetFontAltas::ATTRIB_ANNO_CIRCLE_ANCHOR));
-                                    (*v)[0].set(*bestCandidate);
+                                    (*v)[0].set(newAnchor);
                                     (*v).dirty();
 
                                     v = static_cast<osg::Vec3Array*>(annoDrawable->getVertexAttribArray(MPStateSetFontAltas::ATTRIB_ANNO_CIRCLE_CENTER));
@@ -137,6 +155,7 @@ namespace
                                     annoDrawable->setInverted(circleCenterOnScreen.y() > newAnchorOnScreen.y());
                                 }
                             }
+
                             else
                             {
                                 annoDrawable->setNodeMask(0);

@@ -566,7 +566,7 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
 
 
             // computes the clamped labels (used for graticules)
-            if (annoDrawable->screenClamping())
+            else if (annoDrawable->screenClamping())
             {
                 const osgEarth::SpatialReference* srs = osgEarth::SpatialReference::create("epsg:4326");
                 
@@ -844,17 +844,18 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
                 local._used.push_back( box );
                 local._passed.push_back( leaf );
             }
-            osg::Matrix newModelView;
-            newModelView.makeTranslate(annoDrawable->_cull_anchorOnScreen.x(), annoDrawable->_cull_anchorOnScreen.y(), 0);
-
-            if (! rot.zeroRotation())
-                newModelView.preMultRotate(rot);
 
             // Leaf modelview matrixes are shared (by objects in the traversal stack) so we
             // cannot just replace it unfortunately. Have to make a new one. Perhaps a nice
             // allocation pool is in order here
             if (! annoDrawable->_placementInsideCircle )
             {
+                osg::Matrix newModelView;
+                newModelView.makeTranslate(annoDrawable->_cull_anchorOnScreen.x(), annoDrawable->_cull_anchorOnScreen.y(), 0);
+
+                if (! rot.zeroRotation())
+                    newModelView.preMultRotate(rot);
+
                 leaf->_modelview = new osg::RefMatrix(newModelView);
                 leaf->_projection = ortho2DRef;
             }
@@ -875,7 +876,6 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
             {
                 osgUtil::RenderLeaf* leaf     = *i;
                 MPScreenSpaceGeometry* annoDrawable = static_cast<MPScreenSpaceGeometry*>(leaf->_drawable.get());
-                bool fullyIn = true;
                 bool displaySomethingInCluttered = annoDrawable->drawInClutteredMode();
                 if ( displaySomethingInCluttered )
                     annoDrawable->activeClutteredDrawMode( false );
@@ -883,7 +883,6 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
                 // scale in until at full scale:
                 if ( annoDrawable->_declutter_lastScale != 1. )
                 {
-                    fullyIn = false;
                     needRedraw = true;
                     if ( annoDrawable->_declutter_lastScale == 0. )
                         annoDrawable->_declutter_lastScale = minAnimationScale;
