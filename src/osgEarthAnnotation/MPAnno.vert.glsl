@@ -10,6 +10,9 @@ $GLSL_DEFAULT_PRECISION_FLOAT
 in vec4 oe_anno_attr_info;
 in vec4 oe_anno_attr_color2;
 
+in vec3 oe_anno_attr_circle_center;
+in vec3 oe_anno_attr_circle_anchor;
+
 out vec2 oe_anno_texcoord;
 
 flat out vec4 oe_anno_info;
@@ -20,6 +23,11 @@ flat out float widthBy2;
 flat out float heightBy2;
 flat out float msdfUnit;
 
+// ----------- Text on circle -------------
+
+// ratio between the local scale and the pixel scale
+uniform float mp_local2pixel;
+
 // --------- Highlight management ---------
 uniform uint objectid_to_highlight;
 uniform float oe_anno_highlightStrokeWidth;
@@ -28,6 +36,16 @@ uniform vec4 oe_anno_highlightStrokeColor;
 uint oe_index_objectid;
 flat out int selected;
 
+mat3 rotAxis(in vec3 axis, in float a) {
+    axis = normalize(axis);
+    float s = sin(a);
+    float c = cos(a);
+    float oc = 1. - c;
+    vec3 as = axis * s;
+    mat3 p = mat3(axis.x*axis, axis.y*axis, axis.z*axis);
+    mat3 q = mat3(c, -as.z, as.y, as.z, c, -as.x, -as.y, as.x, c);
+    return p*oc + q;
+}
 
 void oe_anno_VS(inout vec4 vertex)
 {
@@ -63,6 +81,23 @@ void oe_anno_VS(inout vec4 vertex)
 
         widthBy2 = oe_anno_info.x * 0.5;
         heightBy2 = oe_anno_info.y * 0.5;
+    }
+
+    // Place label along circle
+    // (FLT_MAX is used for standard labels)
+    else if ( oe_anno_attr_circle_center.x < 10000000. )
+    {
+        float x = vertex.x * mp_local2pixel;
+        // +8 so that the label is slightly shifted from the line
+        float y = (vertex.y + 8.) * mp_local2pixel;
+        vec3 C = oe_anno_attr_circle_center;
+        vec3 A = oe_anno_attr_circle_anchor;
+        float r = length(A-C);
+        float alpha = x / r;
+        mat3 rot = rotAxis(C, alpha);
+        vertex.xyz = rot * A.xyz;
+        vertex.xyz = mix(vertex.xyz, C, y/r);
+        vertex.xyz = normalize(vertex.xyz) * length(A);
     }
 }
 

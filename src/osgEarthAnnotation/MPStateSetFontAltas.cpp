@@ -31,6 +31,8 @@ using namespace osgEarth::Annotation;
 
 const int MPStateSetFontAltas::ATTRIB_ANNO_INFO = osg::Drawable::ATTRIBUTE_6;
 const int MPStateSetFontAltas::ATTRIB_ANNO_COLOR2 = osg::Drawable::ATTRIBUTE_7;
+const int MPStateSetFontAltas::ATTRIB_ANNO_CIRCLE_CENTER = osg::Drawable::ATTRIBUTE_7+1;
+const int MPStateSetFontAltas::ATTRIB_ANNO_CIRCLE_ANCHOR = osg::Drawable::ATTRIBUTE_7+2;
 
 const std::string MPStateSetFontAltas::UNIFORM_HIGHLIGHT_FILL_COLOR = "oe_anno_highlightFillColor";
 const std::string MPStateSetFontAltas::UNIFORM_HIGHLIGHT_STROKE_COLOR = "oe_anno_highlightStrokeColor";
@@ -96,7 +98,7 @@ MPStateSetFontAltas::MPStateSetFontAltas(const std::string &iconAtlasPath, const
     }
     if ( fullIconAtlasPath.empty() || ! osgDB::fileExists(fullIconAtlasPath) )
     {
-        OE_WARN << LC << "Unable to locate the icon atlas " << fullIconAtlasPath << "\n";
+        OE_WARN << LC << "Unable to locate the icon atlas " << iconAtlasPathWithDPI << "\n";
         return;
     }
     URI imageURI = URI(fullIconAtlasPath, readOptions);
@@ -111,7 +113,10 @@ MPStateSetFontAltas::MPStateSetFontAltas(const std::string &iconAtlasPath, const
     double textureSize = imageIcon.get()->s();
     URI atlasConfURI = URI(osgDB::getNameLessExtension(fullIconAtlasPath) + ".txt", readOptions);
     if (! osgDB::fileExists(atlasConfURI.full()))
+    {
+        OE_WARN << LC << "Unable to load the icon atlas config file " << atlasConfURI.full() << "\n";
         return;
+    }
 
     std::ifstream in (std::ifstream(atlasConfURI.full().c_str()));
     std::string key;
@@ -149,6 +154,8 @@ MPStateSetFontAltas::MPStateSetFontAltas(const std::string &iconAtlasPath, const
     vp->setName("MPAnnotation::stateSet");
     vp->addBindAttribLocation( "oe_anno_attr_info", ATTRIB_ANNO_INFO );
     vp->addBindAttribLocation( "oe_anno_attr_color2", ATTRIB_ANNO_COLOR2 );
+    vp->addBindAttribLocation( "oe_anno_attr_circle_center", ATTRIB_ANNO_CIRCLE_CENTER );
+    vp->addBindAttribLocation( "oe_anno_attr_circle_anchor", ATTRIB_ANNO_CIRCLE_ANCHOR );
     Shaders pkg;
     pkg.load( vp, pkg.MPAnno_Vertex );
     pkg.load( vp, pkg.MPAnno_Fragment );

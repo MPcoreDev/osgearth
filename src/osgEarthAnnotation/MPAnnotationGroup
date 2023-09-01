@@ -39,7 +39,7 @@ class OSGEARTHANNO_EXPORT MPAnnotationGroup : public osg::Group
 public:
 
     // Add an annotation (list of drawables corresponding to one feature)
-    virtual long addAnnotation(const Style& style, Geometry *geom, const osgDB::Options* readOptions, unsigned long long instanceIndex=0) = 0;
+    virtual long addAnnotation(const Style& style, Geometry *geom, const osgDB::Options* readOptions, unsigned long long instanceIndex=0, const std::string& text=std::string()) = 0;
 
     // Highlight an Annotation
     virtual void setHighlight( long id, bool highlight = true );

@@ -73,6 +73,8 @@ public:
 
     static const int ATTRIB_ANNO_INFO;
     static const int ATTRIB_ANNO_COLOR2;
+    static const int ATTRIB_ANNO_CIRCLE_CENTER;
+    static const int ATTRIB_ANNO_CIRCLE_ANCHOR;
 
     static const std::string UNIFORM_HIGHLIGHT_FILL_COLOR;
     static const std::string UNIFORM_HIGHLIGHT_STROKE_COLOR;

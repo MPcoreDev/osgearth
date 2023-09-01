@@ -446,18 +446,23 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
         const float outAnimationTime = *options.outAnimationTime();
         bool needRedraw = false;
 
-        //        bool snapToPixel = options.snapToPixel() == true;
-
         osg::Matrix camVPW;
         camVPW.postMult(cam->getViewMatrix());
         camVPW.postMult(cam->getProjectionMatrix());
         camVPW.postMult(windowMatrix);
+        osg::Matrix camMV = cam->getViewMatrix();
+        osg::ref_ptr<osg::RefMatrix> camMVRef = new osg::RefMatrix(camMV);
+        osg::ref_ptr<osg::RefMatrix> camProjRef = new osg::RefMatrix(cam->getProjectionMatrix());
 
         // has the camera moved?
         //        bool camChanged = camVPW != local._lastCamVPW;
         local._lastCamVPW = camVPW;
         osg::Matrix MVP = cam->getViewMatrix() * cam->getProjectionMatrix();
         osg::Vec3f offset;
+
+        osg::Matrix ortho2D;
+        ortho2D.makeOrtho( vp->x(), vp->x()+vp->width()-1, vp->y(), vp->y()+vp->height()-1, -1000, 1000);
+        osg::ref_ptr<osg::RefMatrix> ortho2DRef = new osg::RefMatrix(ortho2D);
 
         // Go through each leaf and test for visibility.
         // Enforce the "max objects" limit along the way.
@@ -561,7 +566,7 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
 
 
             // computes the clamped labels (used for graticules)
-            if (annoDrawable->screenClamping())
+            else if (annoDrawable->screenClamping())
             {
                 const osgEarth::SpatialReference* srs = osgEarth::SpatialReference::create("epsg:4326");
                 
@@ -839,16 +844,26 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
                 local._used.push_back( box );
                 local._passed.push_back( leaf );
             }
-            osg::Matrix newModelView;
-            newModelView.makeTranslate(annoDrawable->_cull_anchorOnScreen.x(), annoDrawable->_cull_anchorOnScreen.y(), 0);
-
-            if (! rot.zeroRotation())
-                newModelView.preMultRotate(rot);
 
             // Leaf modelview matrixes are shared (by objects in the traversal stack) so we
             // cannot just replace it unfortunately. Have to make a new one. Perhaps a nice
             // allocation pool is in order here
-            leaf->_modelview = new osg::RefMatrix(newModelView);
+            if (! annoDrawable->_placementInsideCircle )
+            {
+                osg::Matrix newModelView;
+                newModelView.makeTranslate(annoDrawable->_cull_anchorOnScreen.x(), annoDrawable->_cull_anchorOnScreen.y(), 0);
+
+                if (! rot.zeroRotation())
+                    newModelView.preMultRotate(rot);
+
+                leaf->_modelview = new osg::RefMatrix(newModelView);
+                leaf->_projection = ortho2DRef;
+            }
+            else
+            {
+                leaf->_modelview = camMVRef;
+                leaf->_projection = camProjRef;
+            }
 
         } // end for each leaf
 
@@ -861,7 +876,6 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
             {
                 osgUtil::RenderLeaf* leaf     = *i;
                 MPScreenSpaceGeometry* annoDrawable = static_cast<MPScreenSpaceGeometry*>(leaf->_drawable.get());
-                bool fullyIn = true;
                 bool displaySomethingInCluttered = annoDrawable->drawInClutteredMode();
                 if ( displaySomethingInCluttered )
                     annoDrawable->activeClutteredDrawMode( false );
@@ -869,7 +883,6 @@ struct /*internal*/ MPDeclutterSortSG : public osgUtil::RenderBin::SortCallback
                 // scale in until at full scale:
                 if ( annoDrawable->_declutter_lastScale != 1. )
                 {
-                    fullyIn = false;
                     needRedraw = true;
                     if ( annoDrawable->_declutter_lastScale == 0. )
                         annoDrawable->_declutter_lastScale = minAnimationScale;
@@ -996,21 +1009,6 @@ struct MPDeclutterDraw : public osgUtil::RenderBin::DrawCallback
             state.insertStateSet(insertStateSetPosition, bin->getStateSet());
         }
 
-        // apply a window-space projection matrix.
-        const osg::Viewport* vp = renderInfo.getCurrentCamera()->getViewport();
-        if ( vp )
-        {
-            //TODO see which is faster
-
-            osg::ref_ptr<osg::RefMatrix>& m = _ortho2D.get();
-            if ( !m.valid() )
-                m = new osg::RefMatrix();
-
-            //m->makeOrtho2D( vp->x(), vp->x()+vp->width()-1, vp->y(), vp->y()+vp->height()-1 );
-            m->makeOrtho( vp->x(), vp->x()+vp->width()-1, vp->y(), vp->y()+vp->height()-1, -1000, 1000);
-            state.applyProjectionMatrix( m.get() );
-        }
-
         // render the list
         osgUtil::RenderBin::RenderLeafList& leaves = bin->getRenderLeafList();
 
@@ -1048,6 +1046,7 @@ struct MPDeclutterDraw : public osgUtil::RenderBin::DrawCallback
         }
 
         state.applyModelViewMatrix( leaf->_modelview.get() );
+        state.applyProjectionMatrix( leaf->_projection.get() );
 
         if (previous)
         {

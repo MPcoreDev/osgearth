@@ -111,9 +111,6 @@ public:
     void setId(long id) { _id = id; }
     long getId() const { return _id; }
 
-    /** The global BBox for the whole feature (containing all the drawables) */
-    const osg::BoundingBox& getBBox() const { return _bbox; }
-    //void expandBboxBy ( const osg::BoundingBox& bbox) { _bbox.expandBy(bbox); _bsphere.expandRadiusBy(bbox); _bboxSymetric.expandBy(_bsphere); }
     const osg::BoundingBox& getBBoxSymetric() const { return _bboxSymetric; }
     
     /** Whether the label shall automatically be clamped to the screen edges */
@@ -152,9 +149,9 @@ public:
     osg::Vec2s _pixelOffset{0, 0};
     bool       _autoRotate{false}, _autoFollowLine{false};
     osg::Vec3d _anchorPoint, _lineStart, _lineEnd, _poly1, _poly2;
-    osg::BoundingBox    _bbox;
-    osg::BoundingSphere _bsphereInitial {osg::Vec3d(0., 0., 0), 0.};
-    osg::BoundingBox    _bboxSymetric;
+    osg::BoundingBox _bboxFullCandidates;
+    osg::BoundingSphere _bSphereFullCandidates;
+    osg::BoundingBox _bboxSymetric;
     unsigned long long  _instanceIndex{0};
     // draw in cluttered state
     bool        _drawInClutteredMode {false};
@@ -163,6 +160,11 @@ public:
     bool        _screenClamping {false};
     bool        _polygonVisible{false};
     bool        _rightLeftPlacementAvail {false};
+    std::vector<osg::Vec3d> _anchorCandidates;
+    osg::Vec3d _circleCenter {0., 0., 0.};
+
+    // for placement in a circle
+    bool        _placementInsideCircle{false};
 
 public:
     // computed at cull step

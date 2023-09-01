@@ -17,6 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 
+#include <algorithm>
 #include <osgEarthAnnotation/MPAnnotationGroupSG>
 #include <osgEarthAnnotation/MPAnnotationDrawable>
 #include <osgEarthAnnotation/AnnotationUtils>
@@ -27,6 +28,7 @@
 #include <osgEarth/GLUtils>
 #include <osgEarthFeatures/GeometryUtils>
 #include <osg/Depth>
+
 #define LC "[MPAnnotationGroupSG] "
 
 using namespace osgEarth;
@@ -43,6 +45,11 @@ namespace
     const GeoPoint undefPoint;
     const double finePriorityRange = 1000000.0;
     
+    bool inViewport(float vpXmin, float vpXmax, float vpYmin, float vpYmax, const osg::Vec3d& pt)
+    {
+        return pt.x() >= vpXmin && pt.x() < vpXmax && pt.y() >= vpYmin && pt.y() < vpYmax;
+    }
+
     // Callback to properly cull the MPAnnotationGroup2
     class AnnotationNodeGroupCullCallbackSG : public osg::NodeCallback
     {
@@ -62,6 +69,11 @@ namespace
                 float vpXmax = cullVisitor->getViewport()->x() + cullVisitor->getViewport()->width();
                 float vpYmin = cullVisitor->getViewport()->y();
                 float vpYmax = cullVisitor->getViewport()->y() + cullVisitor->getViewport()->height();
+                const float margin = 15.;
+                float vpXminWithMargin = vpXmin + margin;
+                float vpXmaxWithMargin = vpXmax - margin;
+                float vpYminWithMargin = vpYmin + margin;
+                float vpYmaxWithMargin = vpYmax - margin;
                 double alt = DBL_MAX;
                 cullVisitor->getCurrentCamera()->getUserValue("altitude", alt);
                 float eyePointLength2 = _backCull ? cullVisitor->getEyePoint().length2() : 0.;
@@ -71,6 +83,7 @@ namespace
                 for (unsigned int i = 0 ; i < annoGroup->getNumChildren() ; ++i)
                 {
                     osg::ref_ptr<MPAnnotationDrawable> annoDrawable = static_cast<MPAnnotationDrawable*>(annoGroup->getChild(i));
+                    bool searchForOtherCandidates = false;
 
                     // visibility management
                     if ( ! annoDrawable->isVisible() )
@@ -84,16 +97,77 @@ namespace
                     annoDrawable->_cull_bboxSymetricOnScreen.set(annoDrawable->_cull_anchorOnScreen + annoDrawable->getBBoxSymetric()._min,
                                                                  annoDrawable->_cull_anchorOnScreen + annoDrawable->getBBoxSymetric()._max);
 
-
                     // check opposite side of the globe
                     if ( _backCull && (cullVisitor->getEyePoint() - annoDrawable->_anchorPoint).length2() > eyePointLength2 )
                     {
-                        annoDrawable->setNodeMask(0);
-                        continue;
+                        if (annoDrawable->_anchorCandidates.empty())
+                        {
+                            annoDrawable->setNodeMask(0);
+                            continue;
+                        }
+                        else
+                        {
+                            searchForOtherCandidates = true;
+                        }
+                    }
+
+                    // check multiple candidates case
+                    if (! annoDrawable->_anchorCandidates.empty())
+                    {
+                        searchForOtherCandidates |= ! inViewport(vpXminWithMargin, vpXmaxWithMargin, vpYminWithMargin, vpYmaxWithMargin, annoDrawable->_cull_anchorOnScreen);
+
+                        if (searchForOtherCandidates)
+                        {
+                            bool hides = true;
+                            osg::Vec3d newAnchor;
+                            osg::Vec3d newAnchorOnScreen;
+                            // do culling through a bounding box and a bounding sphere for better accuracy
+                            if (! cullVisitor->isCulled(annoDrawable->_bboxFullCandidates) && ! cullVisitor->isCulled(annoDrawable->_bSphereFullCandidates))
+                            {
+                                auto bestCandidate = std::find_if(annoDrawable->_anchorCandidates.begin(), annoDrawable->_anchorCandidates.end(),
+                                    [&](const osg::Vec3d& candidate) {
+                                        newAnchorOnScreen = candidate * MVPW;
+                                        return inViewport(vpXminWithMargin, vpXmaxWithMargin, vpYminWithMargin, vpYmaxWithMargin, newAnchorOnScreen) &&
+                                            (! _backCull || (cullVisitor->getEyePoint() - candidate).length2() < eyePointLength2);
+                                    });
+
+                                if (bestCandidate != annoDrawable->_anchorCandidates.end())
+                                {
+                                    newAnchor = *bestCandidate;
+                                    hides = false;
+                                }
+                            }
+
+                            if (! hides)
+                            {
+                                annoDrawable->setAnchorPoint(newAnchor);
+                                annoDrawable->_cull_anchorOnScreen = newAnchorOnScreen;
+
+                                if (annoDrawable->_placementInsideCircle)
+                                {
+                                    auto v = static_cast<osg::Vec3Array*>(annoDrawable->getVertexAttribArray(MPStateSetFontAltas::ATTRIB_ANNO_CIRCLE_ANCHOR));
+                                    (*v)[0].set(newAnchor);
+                                    (*v).dirty();
+                                }
+                            }
+
+                            else
+                            {
+                                annoDrawable->setNodeMask(0);
+                                continue;
+                            }
+                        }
+
+                        // ensure that the circle label is correctly oriented
+                        if (annoDrawable->_placementInsideCircle)
+                        {
+                            osg::Vec3d circleCenterOnScreen = annoDrawable->_circleCenter * MVPW;
+                            annoDrawable->setInverted(circleCenterOnScreen.y() > annoDrawable->_cull_anchorOnScreen.y());
+                        }
                     }
 
                     // chek if it is out of viewport
-                    if ( ! annoDrawable->isAutoFollowLine() && ! annoDrawable->screenClamping() && ! annoDrawable->polygonVisible() )
+                    else if ( ! annoDrawable->isAutoFollowLine() && ! annoDrawable->screenClamping() && ! annoDrawable->polygonVisible() )
                     {
                         // out of viewport
                         if ( osg::maximum(annoDrawable->_cull_bboxSymetricOnScreen.xMin(), vpXmin) > osg::minimum(annoDrawable->_cull_bboxSymetricOnScreen.xMax(), vpXmax) ||
@@ -152,6 +226,11 @@ osg::BoundingSphere MPAnnotationGroupSG::computeBound () const
                 bsphere.expandBy(annoDrawable->getLineStartPoint());
                 bsphere.expandBy(annoDrawable->getLineEndPoint());
             }
+            else if (! annoDrawable->_anchorCandidates.empty())
+            {
+                for (const auto& candidate : annoDrawable->_anchorCandidates)
+                    bsphere.expandBy(candidate);
+            }
         }
     }
     return bsphere;
@@ -169,7 +248,7 @@ MPAnnotationGroupSG::MPAnnotationGroupSG(const osgDB::Options *readOptions , Tex
         {
 
             if ( ! MPScreenSpaceLayoutSG::isExtensionLoaded()
-                 || ! MPScreenSpaceLayoutSG::getOptions().iconAltas().isSet() )
+                          || ! MPScreenSpaceLayoutSG::getOptions().iconAltas().isSet() )
             {
                 OE_WARN << LC << "Impossible to create StateSet because MPScreenSpaceLayoutSG is not well defined." << "\n";
                 return;
@@ -193,31 +272,62 @@ MPAnnotationGroupSG::MPAnnotationGroupSG(const osgDB::Options *readOptions , Tex
     ShaderGenerator::setIgnoreHint(this, true);
 }
 
-long MPAnnotationGroupSG::addAnnotation(const Style& style, Geometry *geom, const osgDB::Options* readOptions, unsigned long long instanceIndex)
+long MPAnnotationGroupSG::addAnnotation(const Style& style, Geometry *geom, const osgDB::Options* readOptions, unsigned long long instanceIndex, const std::string& text)
 {
     if ( ! _atlasStateSet.valid() )
         return -1;
+
+    // if it is inside circle placement, we will create as much annotation as geometrries
+    const TextSymbol* ts = style.get<TextSymbol>();
+    if ( ts->placementTechnique().isSetTo(TextSymbol::PlacementTechnique::INSIDE_CIRCLE) && geom
+        && geom->getComponentType() == Symbology::Geometry::TYPE_POLYGON && geom->getType() == Symbology::Geometry::TYPE_MULTI)
+    {
+        std::string allTexts = ts->content()->eval();
+        StringTokenizer splitter( ";" );
+        splitter.keepEmpties() = true;
+        StringVector subTexts;
+        splitter.tokenize( allTexts, subTexts );
+        MultiGeometry* geomMulti = dynamic_cast<MultiGeometry*>(geom);
+        if ( subTexts.size() != geomMulti->getComponents().size() )
+        {
+            OE_WARN << LC << "Text definition does not provide enough subtexts\n";
+            return -1;
+        }
+        else
+        {
+            long ret = 0;
+            for (int i = 0 ; i < geomMulti->getComponents().size() ; ++i)
+            {
+                auto geomPolygon = geomMulti->getComponents().at(i);
+                std::string curText = subTexts[i];
+                ret = addAnnotation(style, geomPolygon, readOptions, instanceIndex, curText);
+            }
+            return ret;
+        }
+    }
 
     // unique id for this annotation
     static long id{0};
     long localId = ++id;
 
     // buid the single geometry which will gather all sub items and LODs
-    MPAnnotationDrawable* annoDrawable = new MPAnnotationDrawable(style, readOptions, _atlasStateSet.get());
+    MPAnnotationDrawable* annoDrawable = new MPAnnotationDrawable(style, readOptions, _atlasStateSet.get(), text);
     annoDrawable->setId(localId);
     annoDrawable->setInstanceIndex(instanceIndex);
     annoDrawable->setCullingActive(false);
     annoDrawable->setDataVariance(DataVariance::DYNAMIC);
 
     // compute the anchor point as the centroid of the geometry
-    annoDrawable->updateGeometry( geom );
+    if ( ts->placementTechnique().isSetTo(TextSymbol::PlacementTechnique::INSIDE_CIRCLE) )
+        annoDrawable->updateCircleGeometry( geom );
+    else
+        annoDrawable->updateGeometry( geom );
     GeoPoint pos = annoDrawable->getPosition();
     //osg::BoundingSphere bSphere(annoDrawable->getBound());
 
     // priority
     osg::ref_ptr<const InstanceSymbol> instance = style.get<InstanceSymbol>();
     const IconSymbol* iconSym = instance.valid() ? instance->asIcon() : nullptr;
-    const TextSymbol* ts = style.get<TextSymbol>();
     
     
  

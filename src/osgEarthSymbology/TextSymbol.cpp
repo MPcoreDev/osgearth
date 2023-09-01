@@ -437,6 +437,8 @@ TextSymbol::parseSLD(const Config& c, Style& style)
             style.getOrCreate<TextSymbol>()->placementTechnique() = TextSymbol::RIGHT_OR_LEFT_FROM_ICON;
         else if (match(c.value(), "polygon-visible"))
             style.getOrCreate<TextSymbol>()->placementTechnique() = TextSymbol::POLYGON_VISIBLE;
+        else if (match(c.value(), "inside-circle"))
+            style.getOrCreate<TextSymbol>()->placementTechnique() = TextSymbol::INSIDE_CIRCLE;
         else
             style.getOrCreate<TextSymbol>()->placementTechnique() = TextSymbol::NONE;
     }

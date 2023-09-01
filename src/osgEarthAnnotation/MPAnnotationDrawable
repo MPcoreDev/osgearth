@@ -60,7 +60,7 @@ public:
         std::vector<ShiftInfo> shiftVec;
     };
 
-    MPAnnotationDrawable(const osgEarth::Symbology::Style& style, const osgDB::Options* readOptions, MPStateSetFontAltas *atlasStateSet );
+    MPAnnotationDrawable(const osgEarth::Symbology::Style& style, const osgDB::Options* readOptions, MPStateSetFontAltas *atlasStateSet, const std::string& text=std::string() );
 
     /** set the right geometry LOD according to the cam altitude **/
     void setAltitude(double alt);
@@ -95,6 +95,9 @@ public:
     void updateGeometry(GeoPoint &pos , double geographicCourse = DBL_MAX);
     void updateGeometry(const Symbology::Geometry *geom, double geographicCourse = DBL_MAX );
 
+    /** specific functions for label placement inside a circle **/
+    void updateCircleGeometry(const Symbology::Geometry *geom );
+
     /** get the current position **/
     const GeoPoint& getPosition() const { return _position; };
 
@@ -102,7 +105,7 @@ protected:
 
     virtual ~MPAnnotationDrawable() { }
 
-    void buildGeometry(const osgEarth::Symbology::Style& style);
+    void buildGeometry(const osgEarth::Symbology::Style& style, const std::string& textOverride=std::string() );
 
     float appendIcon(const std::string& urlPath, const osg::Vec4 &color = Color::White, double alt = DBL_MAX, float xMax = FLT_MAX);
     int appendText(const std::string &text,
@@ -151,6 +154,7 @@ protected:
     osg::observer_ptr<osg::Vec2Array> _t {nullptr};
     osg::observer_ptr<osg::Vec4Array> _infoArray {nullptr};
     osg::observer_ptr<osg::Vec4Array> _c2 {nullptr};
+    osg::observer_ptr<osg::Vec3Array> _circleAnchor {nullptr};
     osg::observer_ptr<ScreenSpaceDrawElements> _d {nullptr};
 
     URIContext _context;

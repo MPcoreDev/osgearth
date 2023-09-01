@@ -1383,7 +1383,7 @@ bool EarthManipulator::handle(const osgGA::GUIEventAdapter &ea,
           view->getCamera()->setUserValue("altitude", _distance);
 
           // compute the ratio between pixel scale and world scale
-          double wScreen = -_distance * tan(0.5 * osg::DegreesToRadians(_lastKnownVFOV));
+          double wScreen = _distance * tan(0.5 * osg::DegreesToRadians(_lastKnownVFOV));
           float factor = wScreen * 2. / view->getCamera()->getViewport()->height();
           osg::StateSet* ss = view->getCamera()->getOrCreateStateSet();
           osg::Uniform* u = ss->getUniform("mp_local2pixel");
