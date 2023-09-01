@@ -148,10 +148,6 @@ namespace
                                     auto v = static_cast<osg::Vec3Array*>(annoDrawable->getVertexAttribArray(MPStateSetFontAltas::ATTRIB_ANNO_CIRCLE_ANCHOR));
                                     (*v)[0].set(newAnchor);
                                     (*v).dirty();
-
-                                    v = static_cast<osg::Vec3Array*>(annoDrawable->getVertexAttribArray(MPStateSetFontAltas::ATTRIB_ANNO_CIRCLE_CENTER));
-                                    osg::Vec3d circleCenterOnScreen = (*v)[0] * MVPW;
-                                    annoDrawable->setInverted(circleCenterOnScreen.y() > newAnchorOnScreen.y());
                                 }
                             }
 
@@ -160,6 +156,13 @@ namespace
                                 annoDrawable->setNodeMask(0);
                                 continue;
                             }
+                        }
+
+                        // ensure that the circle label is correctly oriented
+                        if (annoDrawable->_placementInsideCircle)
+                        {
+                            osg::Vec3d circleCenterOnScreen = annoDrawable->_circleCenter * MVPW;
+                            annoDrawable->setInverted(circleCenterOnScreen.y() > annoDrawable->_cull_anchorOnScreen.y());
                         }
                     }
 

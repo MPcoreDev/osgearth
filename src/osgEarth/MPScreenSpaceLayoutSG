@@ -161,7 +161,7 @@ public:
     bool        _polygonVisible{false};
     bool        _rightLeftPlacementAvail {false};
     std::vector<osg::Vec3d> _anchorCandidates;
-    osg::observer_ptr<osg::Vec3Array> _circleCenter {nullptr};
+    osg::Vec3d _circleCenter {0., 0., 0.};
 
     // for placement in a circle
     bool        _placementInsideCircle{false};

@@ -90,7 +90,7 @@ MPAnnotationDrawable::MPAnnotationDrawable(const Style &style, const osgDB::Opti
     _altTextFirstLevel = textSymbol && textSymbol->minRange().isSet() ? textSymbol->minRange().get() : DBL_MAX;
     _altIconFirstLevel = iconSym && iconSym->minRange().isSet() ? iconSym->minRange().get() : DBL_MAX;
     _alt2ndLevel = textSymbol && textSymbol->minRange2ndlevel().isSet() ? textSymbol->minRange2ndlevel().value() : _altTextFirstLevel;
-
+    _placementInsideCircle = textSymbol && textSymbol->placementTechnique().isSetTo(TextSymbol::PlacementTechnique::INSIDE_CIRCLE);
 
     if ( textSymbol && textSymbol->encoding().isSet() )
         _text_encoding = AnnotationUtils::convertTextSymbolEncoding(textSymbol->encoding().value());
@@ -575,9 +575,9 @@ void MPAnnotationDrawable::buildGeometry(const osgEarth::Symbology::Style& style
 
     if (! _placementInsideCircle)
     {
-        _circleCenter = new osg::Vec3Array(osg::Array::BIND_OVERALL, 1);
-        (*_circleCenter)[0].set(FLT_MAX, FLT_MAX, FLT_MAX);
-        setVertexAttribArray( MPStateSetFontAltas::ATTRIB_ANNO_CIRCLE_CENTER, _circleCenter.get(), osg::Array::BIND_OVERALL );
+        osg::ref_ptr<osg::Vec3Array> noCircleCenterAtt = new osg::Vec3Array(osg::Array::BIND_OVERALL, 1);
+        (*noCircleCenterAtt)[0].set(FLT_MAX, FLT_MAX, FLT_MAX);
+        setVertexAttribArray( MPStateSetFontAltas::ATTRIB_ANNO_CIRCLE_CENTER, noCircleCenterAtt.get(), osg::Array::BIND_OVERALL );
     }
 
     addPrimitiveSet( _d.get() );
@@ -894,10 +894,21 @@ int MPAnnotationDrawable::appendText(const std::string& text, const std::string&
         _c2->push_back( color );
         _c2->push_back( color );
 
-        _t->push_back( glyphInfo.lb_t );
-        _t->push_back( glyphInfo.lt_t );
-        _t->push_back( glyphInfo.rt_t );
-        _t->push_back( glyphInfo.rb_t );
+        if (! _placementInsideCircle)
+        {
+            _t->push_back( glyphInfo.lb_t );
+            _t->push_back( glyphInfo.lt_t );
+            _t->push_back( glyphInfo.rt_t );
+            _t->push_back( glyphInfo.rb_t );
+        }
+        // we need to invert the texture coordinate for label inside circle
+        else
+        {
+            _t->push_back( glyphInfo.lt_t );
+            _t->push_back( glyphInfo.lb_t );
+            _t->push_back( glyphInfo.rb_t );
+            _t->push_back( glyphInfo.rt_t );
+        }
 
         // push the draw type
         float msdfUnit =  1. / (3. * scale);
@@ -905,7 +916,6 @@ int MPAnnotationDrawable::appendText(const std::string& text, const std::string&
         _infoArray->push_back( osg::Vec4(glyphInfo.size.x(), glyphInfo.size.y(), MPStateSetFontAltas::TYPE_CHARACTER_MSDF, msdfUnit) );
         _infoArray->push_back( osg::Vec4(glyphInfo.size.x(), glyphInfo.size.y(), MPStateSetFontAltas::TYPE_CHARACTER_MSDF, msdfUnit) );
         _infoArray->push_back( osg::Vec4(glyphInfo.size.x(), glyphInfo.size.y(), MPStateSetFontAltas::TYPE_CHARACTER_MSDF, msdfUnit) );
-
         unsigned int last = _v->getNumElements() - 1;
         std::vector<GLubyte> drawIndices { GLubyte(last-3), GLubyte(last-2), GLubyte(last-1), GLubyte(last-3), GLubyte(last-1), GLubyte(last)};
         pushDrawElements(alt, drawIndices, pushDrawAfter);
@@ -979,7 +989,7 @@ void MPAnnotationDrawable::moveTextPosition(int nbVertices, const osg::BoundingB
         osg::Vec3 textCenter(textBBox.center());
         osg::Vec3 refCenter(refBBox.center());
         translate = - textCenter + refCenter;
-        translate.y() = 0;
+        translate.y() = 0.;
         doTranslation = true;
     }
 
@@ -1201,16 +1211,19 @@ void MPAnnotationDrawable::setInverted(bool inverted)
     }
     else
     {
-        double yMax = DBL_MIN;
+        // we need to invert x coordinate, and to flip texture coordinate
+        _t = static_cast<osg::Vec2Array*>(getTexCoordArray(0u));
         for ( int i = 0 ; i < _v->size() ; ++i )
         {
-            if ((*_v)[i].y() > yMax) yMax = (*_v)[i].y();
-            (*_v)[i] = - (*_v)[i];
+            (*_v)[i].x() = - (*_v)[i].x();
+            if ( i % 2 == 0)
+            {
+                float temp{(*_t)[i].y()};
+                (*_t)[i].y() = (*_t)[i+1].y();
+                (*_t)[i+1].y() = temp;
+            }
         }
-        for ( int i = 0 ; i < _v->size() ; ++i )
-        {
-            (*_v)[i].y() += yMax;
-        }
+        _t->dirty();
     }
 
     for ( const auto& shiftData : _rot_verticesToShift )
@@ -1385,9 +1398,10 @@ void MPAnnotationDrawable::updateCircleGeometry(const Symbology::Geometry* geom 
 
     centroid /= nbPoints;
 
-    _circleCenter = new osg::Vec3Array(osg::Array::BIND_OVERALL, 1);
-    (*_circleCenter)[0].set(centroid);
-    setVertexAttribArray( MPStateSetFontAltas::ATTRIB_ANNO_CIRCLE_CENTER, _circleCenter.get(), osg::Array::BIND_OVERALL );
+    _circleCenter = centroid;
+    osg::ref_ptr<osg::Vec3Array> circleCenterAtt = new osg::Vec3Array(osg::Array::BIND_OVERALL, 1);
+    (*circleCenterAtt)[0].set(_circleCenter);
+    setVertexAttribArray( MPStateSetFontAltas::ATTRIB_ANNO_CIRCLE_CENTER, circleCenterAtt.get(), osg::Array::BIND_OVERALL );
 
     osg::Vec3d first{geomPolygon->front()};
     GeoPoint posGeo( osgEarth::SpatialReference::get("wgs84"), first.x(), first.y(), first.z(), ALTMODE_ABSOLUTE );
@@ -1397,7 +1411,6 @@ void MPAnnotationDrawable::updateCircleGeometry(const Symbology::Geometry* geom 
     (*_circleAnchor)[0].set(posWorld);
     setVertexAttribArray( MPStateSetFontAltas::ATTRIB_ANNO_CIRCLE_ANCHOR, _circleAnchor.get(), osg::Array::BIND_OVERALL );
 
-    _placementInsideCircle = true;
     updateGeometry( posGeo, DBL_MAX );
 }
 
