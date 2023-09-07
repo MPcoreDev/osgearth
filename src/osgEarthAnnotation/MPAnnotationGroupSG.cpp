@@ -31,6 +31,9 @@
 
 #define LC "[MPAnnotationGroupSG] "
 
+// Uncomment to see the time spent by the label placement on circle algo
+//#define MP_LOG_LABEL_CIRCLE_PERF
+
 using namespace osgEarth;
 using namespace osgEarth::Annotation;
 
@@ -45,9 +48,13 @@ namespace
     const GeoPoint undefPoint;
     const double finePriorityRange = 1000000.0;
     
-    bool inViewport(float vpXmin, float vpXmax, float vpYmin, float vpYmax, const osg::Vec3d& pt)
+    bool inViewport(float vpXmin, float vpXmax, float vpYmin, float vpYmax, const osg::Vec3d& pt,
+                    const osg::Vec3d& center, float bboxWidth, float bboxHeight)
     {
-        return pt.x() >= vpXmin && pt.x() < vpXmax && pt.y() >= vpYmin && pt.y() < vpYmax;
+        float alpha = atan2(pt.y() - center.y(), pt.x() - center.x());
+        float height = osg::maximum(bboxHeight, abs(cos(alpha))*bboxWidth) / 2.;
+        float width = osg::maximum(bboxHeight, abs(sin(alpha))*bboxWidth) / 2.;
+        return pt.x() >= (vpXmin+width) && pt.x() < (vpXmax-width) && pt.y() >= (vpYmin+height) && pt.y() < (vpYmax-height);
     }
 
     // Callback to properly cull the MPAnnotationGroup2
@@ -65,18 +72,23 @@ namespace
             if ( ! cullVisitor->isCulled(node->getBound()) )
             {
                 const osg::Matrix& MVPW = *(cullVisitor->getMVPW());
-                float vpXmin = cullVisitor->getViewport()->x();
-                float vpXmax = cullVisitor->getViewport()->x() + cullVisitor->getViewport()->width();
-                float vpYmin = cullVisitor->getViewport()->y();
-                float vpYmax = cullVisitor->getViewport()->y() + cullVisitor->getViewport()->height();
-                const float margin = 15.;
-                float vpXminWithMargin = vpXmin + margin;
-                float vpXmaxWithMargin = vpXmax - margin;
-                float vpYminWithMargin = vpYmin + margin;
-                float vpYmaxWithMargin = vpYmax - margin;
+                const float vpXmin = cullVisitor->getViewport()->x();
+                const float vpXmax = cullVisitor->getViewport()->x() + cullVisitor->getViewport()->width();
+                const float vpYmin = cullVisitor->getViewport()->y();
+                const float vpYmax = cullVisitor->getViewport()->y() + cullVisitor->getViewport()->height();
+                const bool landscape {cullVisitor->getViewport()->width() > cullVisitor->getViewport()->height()};
+                const float topMargin = landscape ? 0.05f * cullVisitor->getViewport()->height() : 0.04f * cullVisitor->getViewport()->height();
+                const float rightMargin = landscape ? 0.06f * cullVisitor->getViewport()->width() : 0.08f * cullVisitor->getViewport()->width();
+                const float leftMargin = landscape ? 0.02f * cullVisitor->getViewport()->width() : 0.03f * cullVisitor->getViewport()->width();
+                const float bottomMargin = landscape ? 0.22f * cullVisitor->getViewport()->height() : 0.16f * cullVisitor->getViewport()->height();
+                const float bboxMargin = 0.f;
+                const float vpXminWithMargin = vpXmin + leftMargin + bboxMargin;
+                const float vpXmaxWithMargin = vpXmax - rightMargin - bboxMargin;
+                const float vpYminWithMargin = vpYmin + bottomMargin + bboxMargin;
+                const float vpYmaxWithMargin = vpYmax - topMargin - bboxMargin;
+                const float eyePointLength2 = _backCull ? cullVisitor->getEyePoint().length2() : 0.;
                 double alt = DBL_MAX;
                 cullVisitor->getCurrentCamera()->getUserValue("altitude", alt);
-                float eyePointLength2 = _backCull ? cullVisitor->getEyePoint().length2() : 0.;
 
                 osg::ref_ptr<MPAnnotationGroupSG> annoGroup = static_cast<MPAnnotationGroupSG*>(node);
 
@@ -114,7 +126,11 @@ namespace
                     // check multiple candidates case
                     if (! annoDrawable->_anchorCandidates.empty())
                     {
-                        searchForOtherCandidates |= ! inViewport(vpXminWithMargin, vpXmaxWithMargin, vpYminWithMargin, vpYmaxWithMargin, annoDrawable->_cull_anchorOnScreen);
+                        osg::Vec3d circleCenterOnScreen = annoDrawable->_circleCenter * MVPW;
+                        float bboxWidth = annoDrawable->getBoundingBox().xMax() - annoDrawable->getBoundingBox().xMin();
+                        float bboxHeight = annoDrawable->getBoundingBox().yMax() - annoDrawable->getBoundingBox().yMin();
+                        searchForOtherCandidates |= ! inViewport(vpXminWithMargin, vpXmaxWithMargin, vpYminWithMargin, vpYmaxWithMargin,
+                                         annoDrawable->_cull_anchorOnScreen, circleCenterOnScreen, bboxWidth, bboxHeight);
 
                         if (searchForOtherCandidates)
                         {
@@ -124,12 +140,23 @@ namespace
                             // do culling through a bounding box and a bounding sphere for better accuracy
                             if (! cullVisitor->isCulled(annoDrawable->_bboxFullCandidates) && ! cullVisitor->isCulled(annoDrawable->_bSphereFullCandidates))
                             {
+#ifdef MP_LOG_LABEL_CIRCLE_PERF
+                                auto _start = osg::Timer::instance()->tick();
+#endif
                                 auto bestCandidate = std::find_if(annoDrawable->_anchorCandidates.begin(), annoDrawable->_anchorCandidates.end(),
                                     [&](const osg::Vec3d& candidate) {
                                         newAnchorOnScreen = candidate * MVPW;
-                                        return inViewport(vpXminWithMargin, vpXmaxWithMargin, vpYminWithMargin, vpYmaxWithMargin, newAnchorOnScreen) &&
+
+                                        return inViewport(vpXminWithMargin, vpXmaxWithMargin, vpYminWithMargin, vpYmaxWithMargin,
+                                                          newAnchorOnScreen, circleCenterOnScreen, bboxWidth, bboxHeight) &&
                                             (! _backCull || (cullVisitor->getEyePoint() - candidate).length2() < eyePointLength2);
                                     });
+
+#ifdef MP_LOG_LABEL_CIRCLE_PERF
+                                auto now = osg::Timer::instance()->tick();
+                                double timeSoFar = osg::Timer::instance()->delta_m(_start, now);
+                                OE_WARN << "Circle label placement time spent is " << timeSoFar << "\n";
+#endif
 
                                 if (bestCandidate != annoDrawable->_anchorCandidates.end())
                                 {
@@ -150,18 +177,11 @@ namespace
                                     (*v).dirty();
                                 }
                             }
-
-                            else
-                            {
-                                annoDrawable->setNodeMask(0);
-                                continue;
-                            }
                         }
 
                         // ensure that the circle label is correctly oriented
                         if (annoDrawable->_placementInsideCircle)
                         {
-                            osg::Vec3d circleCenterOnScreen = annoDrawable->_circleCenter * MVPW;
                             annoDrawable->setInverted(circleCenterOnScreen.y() > annoDrawable->_cull_anchorOnScreen.y());
                         }
                     }
