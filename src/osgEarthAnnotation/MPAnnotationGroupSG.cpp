@@ -79,8 +79,8 @@ namespace
                 const bool landscape {cullVisitor->getViewport()->width() > cullVisitor->getViewport()->height()};
                 const float topMargin = landscape ? 0.05f * cullVisitor->getViewport()->height() : 0.04f * cullVisitor->getViewport()->height();
                 const float rightMargin = landscape ? 0.06f * cullVisitor->getViewport()->width() : 0.08f * cullVisitor->getViewport()->width();
-                const float leftMargin = landscape ? 0.02f * cullVisitor->getViewport()->width() : 0.03f * cullVisitor->getViewport()->width();
-                const float bottomMargin = landscape ? 0.22f * cullVisitor->getViewport()->height() : 0.16f * cullVisitor->getViewport()->height();
+                const float leftMargin = landscape ? 0.07f * cullVisitor->getViewport()->width() : 0.09f * cullVisitor->getViewport()->width();
+                const float bottomMargin = landscape ? 0.17f * cullVisitor->getViewport()->height() : 0.13f * cullVisitor->getViewport()->height();
                 const float bboxMargin = 0.f;
                 const float vpXminWithMargin = vpXmin + leftMargin + bboxMargin;
                 const float vpXmaxWithMargin = vpXmax - rightMargin - bboxMargin;
@@ -175,6 +175,19 @@ namespace
                                     auto v = static_cast<osg::Vec3Array*>(annoDrawable->getVertexAttribArray(MPStateSetFontAltas::ATTRIB_ANNO_CIRCLE_ANCHOR));
                                     (*v)[0].set(newAnchor);
                                     (*v).dirty();
+                                }
+                                annoDrawable->setNodeMask( nodeNoMask );
+                            }
+                            else
+                            {
+                                if (_backCull && (cullVisitor->getEyePoint() - annoDrawable->_anchorPoint).length2() > eyePointLength2)
+                                {
+                                    annoDrawable->setNodeMask(0);
+                                    continue;
+                                }
+                                else
+                                {
+                                    annoDrawable->setNodeMask( nodeNoMask );
                                 }
                             }
                         }
