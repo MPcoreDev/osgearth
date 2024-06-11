@@ -148,6 +148,9 @@ namespace osgEarth { namespace Drivers { namespace RexTerrainEngine
         bool _refreshRequired;
         bool _stateUpdateRequired;
 
+        // current selected theme
+        Theme _theme{defaultTheme};
+
         // extents of each layer, in the Map's SRS. UID = vector index (for speed)
         LayerExtentVector _cachedLayerExtents; 
 

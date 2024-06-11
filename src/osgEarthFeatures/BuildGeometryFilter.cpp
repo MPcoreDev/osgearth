@@ -36,6 +36,7 @@
 #include <osgEarth/StateSetCache>
 #include <osgEarth/ShaderGenerator>
 #include <osgEarth/Tessellator>
+#include <osgEarth/ThemeInfo>
 #include <osg/Geode>
 #include <osg/Geometry>
 #include <osg/LineStipple>
@@ -100,6 +101,51 @@ namespace
 
         return false;
     }
+
+
+    /**
+     * Handle switching between two colors according the a 'ThemeInfo' event
+     * it works only on geometry nodes with only one unique color
+     */
+    class UpdateColorEventCallback : public osg::NodeCallback
+    {
+    public:
+
+        UpdateColorEventCallback(osg::Vec4f colorDark, osg::Vec4f colorLight) : _colors{colorDark, colorLight}
+        {
+        }
+
+        void operator()(osg::Node *node, osg::NodeVisitor *nv) override
+        {
+            const auto ev{nv->asEventVisitor()};
+            if (ev)
+            {
+                // we loop on all events, but we will treat only the 'ThemeInfo' one and break the loop
+                for (const auto &event : ev->getEvents())
+                {
+                    const auto themeInfo{dynamic_cast<ThemeInfo*>(event->getUserData())};
+                    if(themeInfo)
+                    {
+                        auto geometry{node->asGeometry()};
+                        if (geometry)
+                        {
+                            auto colorArray{dynamic_cast<osg::Vec4Array*>(geometry->getColorArray())};
+                            colorArray->assign(colorArray->size(), _colors[static_cast<std::underlying_type<Theme>::type>(themeInfo->theme)]);
+                            colorArray->dirty();
+                        }
+
+                        // this callback handles only 'ThemeInfo' events then we can stop here
+                        break;
+                    }
+                }
+            }
+
+            traverse(node,nv);
+        }
+
+    private:
+        std::array<osg::Vec4f, 2> _colors{};
+    };
 }
 
 BuildGeometryFilter::BuildGeometryFilter( const Style& style ) :
@@ -171,9 +217,10 @@ BuildGeometryFilter::processPolygons(FeatureList& features, FilterContext& conte
                 continue;
             }
 
-            // resolve the color:
-            osg::Vec4f primaryColor = poly->fill()->color();
-            transparent &= primaryColor.a() == 0.f;
+            // resolve the colors:
+            osg::Vec4f colorDarkTheme = poly->fill()->color();
+            const auto& colorLightTheme = poly->fill(Theme::THEME_LIGHT);
+            transparent &= colorDarkTheme.a() == 0.f && (!colorLightTheme.isSet() || colorLightTheme->color().a() == 0.f);
 
             osg::ref_ptr<osg::Geometry> osgGeom = new osg::Geometry();
             osgGeom->setUseVertexBufferObjects( true );
@@ -238,22 +285,27 @@ BuildGeometryFilter::processPolygons(FeatureList& features, FilterContext& conte
                         ms.run( *osgGeom, threshold, *_geoInterp );
                 }
 
-                // assign the primary color array. PER_VERTEX prefered in order to support
+                // assign the primary color array. PER_VERTEX preferred in order to support
                 // vertex optimization later
                 if (_bindColorOverall.isSetTo(true))
                 {
                     // case bind overall
-                    osg::Vec4Array* colors = new osg::Vec4Array(osg::Array::BIND_OVERALL);
-                    colors->assign( 1, primaryColor );
+                    auto colors = new osg::Vec4Array(osg::Array::BIND_OVERALL);
+                    colors->assign(1, colorDarkTheme );
                     osgGeom->setColorArray( colors );
                 }
                 else
                 {
                     // case bind per vertex
                     unsigned count = osgGeom->getVertexArray()->getNumElements();
-                    osg::Vec4Array* colors = new osg::Vec4Array(osg::Array::BIND_PER_VERTEX);
-                    colors->assign( count, primaryColor );
+                    auto colors = new osg::Vec4Array(osg::Array::BIND_PER_VERTEX);
+                    colors->assign(count, colorDarkTheme );
                     osgGeom->setColorArray( colors );
+                }
+
+                if(colorLightTheme.isSet())
+                {
+                    osgGeom->addEventCallback(new UpdateColorEventCallback(colorDarkTheme, colorLightTheme->color()));
                 }
 
                 geode->addDrawable( osgGeom );
@@ -529,7 +581,8 @@ BuildGeometryFilter::processLines(FeatureList& features, FilterContext& context)
             bool isRing = (dynamic_cast<Ring*>(part) != 0L);
 
             // resolve the color:
-            osg::Vec4f primaryColor = line->stroke()->color();
+            osg::Vec4f colorDarkTheme = line->stroke()->color();
+            const auto& colorLightTheme = line->stroke()->colors(Theme::THEME_LIGHT);
 
             // generate the geometry and localize to the local tangent plane
             osg::ref_ptr< osg::Vec3Array > allPoints = new osg::Vec3Array();
@@ -584,7 +637,7 @@ BuildGeometryFilter::processLines(FeatureList& features, FilterContext& context)
                 }
 
                 // assign the color:
-                lineDrawable->setColor(primaryColor);
+                lineDrawable->setColor(colorDarkTheme);
 
                 // embed the feature name if requested. Warning: blocks geometry merge optimization!
                 if ( _featureNameExpr.isSet() )
@@ -632,7 +685,7 @@ BuildGeometryFilter::processLines(FeatureList& features, FilterContext& context)
                 }
 
                 // assign the color:
-                lineDrawable->setColor(primaryColor);
+                lineDrawable->setColor(colorDarkTheme);
 
                 // install clamping attributes if necessary
                 if (doGpuClamping)
@@ -656,6 +709,11 @@ BuildGeometryFilter::processLines(FeatureList& features, FilterContext& context)
             if ( context.featureIndex() )
             {
                 context.featureIndex()->tagDrawable( drawable, input );
+            }
+
+            if(colorLightTheme.isSet())
+            {
+                drawable->addEventCallback(new UpdateColorEventCallback(colorDarkTheme, colorLightTheme.get()));
             }
 
             drawables->addChild(drawable);

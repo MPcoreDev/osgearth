@@ -17,6 +17,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 #include <osgEarth/MapNodeOptions>
+#include <osgEarth/StringUtils>
+
 
 using namespace osgEarth;
 
@@ -41,6 +43,7 @@ _overlayAttachStencil  ( false ),
 _overlayResolutionRatio( 3.0f ),
 _useCascadeDraping     ( false )
 {
+    _colors[defaultTheme]->set( 1.0f, 1.0f, 1.0f, 1.0f );
     mergeConfig( conf );
 }
 
@@ -56,6 +59,7 @@ _overlayResolutionRatio( 3.0f ),
 _terrainOptions        ( 0L ),
 _useCascadeDraping     ( false )
 {
+    _colors[defaultTheme]->set( 1.0f, 1.0f, 1.0f, 1.0f );
     setTerrainOptions( to );
 }
 
@@ -71,6 +75,7 @@ _overlayResolutionRatio( 3.0f ),
 _terrainOptions        ( 0L ),
 _useCascadeDraping     ( false )
 {
+    _colors[defaultTheme]->set( 1.0f, 1.0f, 1.0f, 1.0f );
     mergeConfig( rhs.getConfig() );
 }
 
@@ -101,6 +106,10 @@ MapNodeOptions::getConfig() const
     conf.set( "overlay_attach_stencil",   _overlayAttachStencil );
     conf.set( "overlay_resolution_ratio", _overlayResolutionRatio );
     conf.set( "cascade_draping",          _useCascadeDraping );
+    if(_colors[Theme::THEME_DARK].isSet())
+        conf.set( "color_dark",            osgEarth::vec4fToHtmlColor(_colors[Theme::THEME_DARK].get()) );
+    if(_colors[Theme::THEME_LIGHT].isSet())
+        conf.set( "color_light",          osgEarth::vec4fToHtmlColor(_colors[Theme::THEME_LIGHT].get()) );
 
     return conf;
 }
@@ -120,6 +129,10 @@ MapNodeOptions::mergeConfig( const Config& conf )
     conf.get( "overlay_attach_stencil",   _overlayAttachStencil );
     conf.get( "overlay_resolution_ratio", _overlayResolutionRatio );
     conf.get( "cascade_draping",          _useCascadeDraping );
+    if ( conf.hasValue( "color_dark" ) )
+        _colors[Theme::THEME_DARK] = htmlColorToVec4f( conf.value( "color_dark" ));
+    if ( conf.hasValue( "color_light" ) )
+        _colors[Theme::THEME_LIGHT] = htmlColorToVec4f( conf.value( "color_light" ));
 
     if ( conf.hasChild( "terrain" ) )
     {

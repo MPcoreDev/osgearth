@@ -31,13 +31,13 @@ Stroke::Stroke()
 Stroke::Stroke( float r, float g, float b, float a )
 {
     init();
-    _color.set( r, g, b, a );
+    _colors[defaultTheme]->set( r, g, b, a );
 }
 
 Stroke::Stroke(const Color& color)
 {
     init();
-    _color = color;
+    _colors[defaultTheme] = color;
 }
 
 Stroke::Stroke(const Config& conf)
@@ -55,7 +55,7 @@ Stroke::Stroke(const Stroke& rhs)
 void
 Stroke::init()
 {
-    _color.set          ( 1.0f, 1.0f, 1.0f, 1.0f );
+    _colors[defaultTheme]->set( 1.0f, 1.0f, 1.0f, 1.0f );
     _lineCap.init       ( LINECAP_FLAT );
     _lineJoin.init      ( LINEJOIN_ROUND );
     _width.init         ( 1.0f );
@@ -72,7 +72,9 @@ Stroke::init()
 Config 
 Stroke::getConfig() const {
     Config conf("stroke");
-    conf.set( "color", _color.toHTML() );
+    conf.set("color", _colors[Theme::THEME_DARK]->toHTML() );
+    conf.set("color_dark", _colors[Theme::THEME_DARK]->toHTML() );
+    conf.set("color_light", _colors[Theme::THEME_LIGHT]->toHTML() );
     conf.set("linecap", "flat",   _lineCap, LINECAP_FLAT);
     conf.set("linecap", "square", _lineCap, LINECAP_SQUARE);
     conf.set("linecap", "round",  _lineCap, LINECAP_ROUND);
@@ -94,7 +96,9 @@ Stroke::getConfig() const {
 
 void 
 Stroke::mergeConfig( const Config& conf ) {
-    _color = Color( conf.value("color") );
+    _colors[defaultTheme] = Color( conf.value("color") );
+    conf.get("color_dark",  _colors[Theme::THEME_DARK]);
+    conf.get("color_light", _colors[Theme::THEME_LIGHT]);
     conf.get("linecap", "flat",   _lineCap, LINECAP_FLAT);
     conf.get("linecap", "square", _lineCap, LINECAP_SQUARE);
     conf.get("linecap", "round",  _lineCap, LINECAP_ROUND);

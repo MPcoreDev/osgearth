@@ -89,6 +89,12 @@ LineSymbol::parseSLD(const Config& c, Style& style)
     if ( match(c.key(), "stroke") ) {
         style.getOrCreate<LineSymbol>()->stroke()->color() = Color(c.value());
     }
+    else if ( match(c.key(), "stroke-color-dark") ) {
+        style.getOrCreate<LineSymbol>()->stroke()->colors(Theme::THEME_DARK) = Color(c.value());
+    }
+    else if ( match(c.key(), "stroke-color-light") ) {
+        style.getOrCreate<LineSymbol>()->stroke()->colors(Theme::THEME_LIGHT) = Color(c.value());
+    }
     else if ( match(c.key(), "stroke-opacity") ) {
         style.getOrCreate<LineSymbol>()->stroke()->color().a() = as<float>( c.value(), 1.0f );
     }

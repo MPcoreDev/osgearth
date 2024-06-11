@@ -31,6 +31,8 @@
 #include <osgEarth/GLUtils>
 #include <osgEarth/HorizonClipPlane>
 #include <osgUtil/Optimizer>
+#include <osgGA/EventVisitor>
+
 
 using namespace osgEarth;
 
@@ -742,6 +744,22 @@ MapNode::traverse( osg::NodeVisitor& nv )
 {
     if ( nv.getVisitorType() == nv.EVENT_VISITOR )
     {
+        // we loop on all events, but we will treat only the 'ThemeInfo' one and break the loop
+        auto ev = nv.asEventVisitor();
+        auto camera = ev->getActionAdapter()->asView()->getCamera();
+        for (const auto &event: ev->getEvents())
+        {
+            const auto themeInfo{dynamic_cast<ThemeInfo *>(event->getUserData())};
+            if (themeInfo && camera)
+            {
+                const auto &colorOpt{_mapNodeOptions.colors(themeInfo->theme)};
+                const auto &color{colorOpt.isSet() ? colorOpt.get() : _mapNodeOptions.colors(defaultTheme).get()};
+                camera->setClearColor(color);
+
+                break;
+            }
+        }
+
         unsigned int numBlacklist = Registry::instance()->getNumBlacklistedFilenames();
         if (numBlacklist != _lastNumBlacklistedFilenames)
         {

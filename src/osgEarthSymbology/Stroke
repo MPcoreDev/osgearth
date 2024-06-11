@@ -24,6 +24,8 @@
 #include <osgEarthSymbology/Color>
 #include <osgEarth/Config>
 #include <osgEarth/Units>
+#include <osgEarth/ThemeInfo>
+#include <unordered_map>
 
 
 namespace osgEarth { namespace Symbology
@@ -60,8 +62,12 @@ namespace osgEarth { namespace Symbology
         virtual ~Stroke() { }
 
         /** Line color. */
-        Color& color() { return _color; }
-        const Color& color() const { return _color; }
+        Color& color() { return _colors[defaultTheme].mutable_value(); }
+        const Color& color() const { return _colors[defaultTheme].mutable_value(); }
+
+        /** Per theme line color */
+        optional<Color>& colors(Theme theme = defaultTheme) { return _colors[theme]; }
+        const optional<Color>& colors(Theme theme = defaultTheme) const { return _colors[theme]; }
 
         /** Capping of line ends. */
         optional<LineCapStyle>& lineCap() { return _lineCap; }
@@ -125,7 +131,7 @@ namespace osgEarth { namespace Symbology
         virtual void mergeConfig( const Config& conf );
 
     protected:
-        Color                    _color;
+        mutable std::unordered_map<Theme, optional<Color>> _colors;
         optional<LineCapStyle>   _lineCap;
         optional<LineJoinStyle>  _lineJoin;
         optional<float>          _width;

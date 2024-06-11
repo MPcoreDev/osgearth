@@ -233,6 +233,7 @@ SET(LIB_PUBLIC_HEADERS
     RasterToModelSource
     RasterToModelGraph
     MPLineDrawable
+    ThemeInfo
 )
 
 

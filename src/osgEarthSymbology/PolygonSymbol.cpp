@@ -34,9 +34,9 @@ _outline(rhs._outline)
 
 PolygonSymbol::PolygonSymbol( const Config& conf ) :
 Symbol( conf ),
-_fill ( Fill() ),
 _outline( true )
 {
+    _fill[defaultTheme] = Color();
     mergeConfig(conf);
 }
 
@@ -45,7 +45,9 @@ PolygonSymbol::getConfig() const
 {
     Config conf = Symbol::getConfig();
     conf.key() = "polygon";
-    conf.set( "fill", _fill );
+    conf.set( "fill", _fill[defaultTheme] );
+    conf.set( "fill_dark", _fill[Theme::THEME_DARK] );
+    conf.set( "fill_light", _fill[Theme::THEME_LIGHT] );
     conf.set("outline", _outline);
     return conf;
 }
@@ -53,8 +55,10 @@ PolygonSymbol::getConfig() const
 void 
 PolygonSymbol::mergeConfig(const Config& conf )
 {
-    conf.get( "fill", _fill );
-    conf.get("outline", _outline);
+    conf.get( "fill", _fill[defaultTheme] );
+    conf.get( "fill_dark", _fill[Theme::THEME_DARK] );
+    conf.get( "fill_light", _fill[Theme::THEME_LIGHT] );
+    conf.get( "outline", _outline );
 }
 
 void
@@ -62,6 +66,12 @@ PolygonSymbol::parseSLD(const Config& c, Style& style)
 {
     if ( match(c.key(), "fill") ) {
         style.getOrCreate<PolygonSymbol>()->fill()->color() = Color(c.value());
+    }
+    else if ( match(c.key(), "fill-dark") ) {
+        style.getOrCreate<PolygonSymbol>()->fill(Theme::THEME_DARK)->color() = Color(c.value());
+    }
+    else if ( match(c.key(), "fill-light") ) {
+        style.getOrCreate<PolygonSymbol>()->fill(Theme::THEME_LIGHT)->color() = Color(c.value());
     }
     else if ( match(c.key(), "fill-opacity") ) {
         style.getOrCreate<PolygonSymbol>()->fill()->color().a() = as<float>( c.value(), 1.0f );
