@@ -771,6 +771,32 @@ RexTerrainEngineNode::traverse(osg::NodeVisitor& nv)
             _rasterizer->accept(nv);
     }
 
+    else if ( nv.getVisitorType() == osg::NodeVisitor::EVENT_VISITOR )
+    {
+        // we loop on all events, but we will treat only the 'ThemeInfo' one and break the loop
+        auto ev = nv.asEventVisitor();
+        for (const auto &event: ev->getEvents())
+        {
+            const auto themeInfo{dynamic_cast<ThemeInfo *>(event->getUserData())};
+
+            if(themeInfo && _surfaceStateSet.valid())
+            {
+                _theme = themeInfo->theme;
+                auto u = _surfaceStateSet->getUniform("oe_terrain_color");
+                if(! u)
+                    break;
+
+                const auto& colorOpt{_terrainOptions.color(_theme)};
+                const auto &color{colorOpt.isSet() ? colorOpt.get() : _terrainOptions.color(defaultTheme).get()};
+                u->set(color);
+
+                break;
+            }
+        }
+
+        TerrainEngineNode::traverse( nv );
+    }
+
     else
     {
         TerrainEngineNode::traverse( nv );
@@ -1406,7 +1432,9 @@ RexTerrainEngineNode::updateState()
         terrainVP->setName("Rex Terrain");
         package.load(terrainVP, package.ENGINE_VERT_MODEL);
 
-        surfaceStateSet->addUniform(new osg::Uniform("oe_terrain_color", _terrainOptions.color().get()));
+        const auto& colorOpt{_terrainOptions.color(_theme)};
+        const auto& color{colorOpt.isSet() ? colorOpt.get() : _terrainOptions.color(defaultTheme).get()};
+        surfaceStateSet->addUniform(new osg::Uniform("oe_terrain_color", color));
 
         surfaceStateSet->addUniform(new osg::Uniform("oe_terrain_altitude", (float)0.0f));
 

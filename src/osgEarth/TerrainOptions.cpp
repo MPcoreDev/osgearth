@@ -26,7 +26,7 @@ using namespace osgEarth;
 TerrainOptions::TerrainOptions( const ConfigOptions& options ) :
 DriverConfigOptions( options ),
 _tileSize( 17 ),
-_color   ( osg::Vec4f(1.f, 1.f, 1.f, 1.f) ),
+_colors( {{defaultTheme, osg::Vec4f(1.f, 1.f, 1.f, 1.f)}} ),
 _verticalScale( 1.0f ),
 _verticalOffset( 0.0f ),
 _minTileRangeFactor( 7.0 ),
@@ -57,8 +57,15 @@ TerrainOptions::getConfig() const
     conf.key() = "terrain";
     
     conf.set( "tile_size", _tileSize );
-    if (_color.isSet())
-        conf.set("color", vec4fToHtmlColor(_color.value()));
+    if (_colors[Theme::THEME_DARK].isSet())
+    {
+        conf.set("color", vec4fToHtmlColor(_colors[defaultTheme].value()));
+        conf.set("color_dark", vec4fToHtmlColor(_colors[Theme::THEME_DARK].value()));
+    }
+    if (_colors[Theme::THEME_LIGHT].isSet())
+    {
+        conf.set("color_light", vec4fToHtmlColor(_colors[Theme::THEME_LIGHT].value()));
+    }
     conf.set( "vertical_scale", _verticalScale );
     conf.set( "vertical_offset", _verticalOffset );
     conf.set( "min_tile_range_factor", _minTileRangeFactor );
@@ -91,7 +98,11 @@ TerrainOptions::fromConfig( const Config& conf )
 {
     conf.get( "tile_size", _tileSize );
     if ( conf.hasValue( "color" ) )
-        _color = htmlColorToVec4f( conf.value( "color" ));
+        _colors[defaultTheme] = htmlColorToVec4f( conf.value( "color" ));
+    if ( conf.hasValue( "color_dark" ) )
+        _colors[Theme::THEME_DARK] = htmlColorToVec4f( conf.value( "color_dark" ));
+    if ( conf.hasValue( "color_light" ) )
+        _colors[Theme::THEME_LIGHT] = htmlColorToVec4f( conf.value( "color_light" ));
     conf.get( "vertical_scale", _verticalScale );
     conf.get( "vertical_offset", _verticalOffset );
     conf.get( "min_tile_range_factor", _minTileRangeFactor );   

@@ -24,6 +24,7 @@
 
 #include <osg/AutoTransform>
 #include <osg/ShapeDrawable>
+#include <osgGA/EventVisitor>
 
 
 #define LC "[OverlayDecorator] "
@@ -350,7 +351,7 @@ OverlayDecorator::initializePerViewData( PerViewData& pvd, osg::Camera* cam )
         if (_engine.valid())
         {
             params._terrainResources = _engine->getResources();
-            params._terrainColor = _engine->getTerrainOptions().color().getOrUse(osg::Vec4f(0., 0., 0., 0.));
+            params._terrainColors = _engine->getTerrainOptions().colors();
         }
         params._mainCamera = cam;
     }
@@ -851,6 +852,33 @@ OverlayDecorator::traverse( osg::NodeVisitor& nv )
 
     else
     {
+        if ( nv.getVisitorType() == osg::NodeVisitor::EVENT_VISITOR )
+        {
+            // we loop on all events, but we will treat only the 'ThemeInfo' one and break the loop
+            auto ev = nv.asEventVisitor();
+            auto camera = ev->getActionAdapter()->asView()->getCamera();
+            for (const auto &event: ev->getEvents())
+            {
+                const auto themeInfo{dynamic_cast<ThemeInfo*>(event->getUserData())};
+                if (camera && themeInfo)
+                {
+                    PerViewData& pvd = getPerViewData( camera );
+
+                    for(unsigned i=0; i<_techniques.size(); ++i)
+                    {
+                        TechRTTParams &params = pvd._techParams[i];
+                        if(! params._rttCamera.valid())
+                            continue;
+
+                        const auto &colorOpt{params._terrainColors[themeInfo->theme]};
+                        const auto &color{colorOpt.isSet() ? colorOpt.get() : params._terrainColors[defaultTheme].get()};
+                        params._rttCamera->setClearColor(color);
+                    }
+                    break;
+                }
+            }
+        }
+
         // Some other type of visitor (like update or intersection). Skip the technique
         // and traverse the geometry directly.
         for(unsigned i=0; i<_overlayGroups.size(); ++i)

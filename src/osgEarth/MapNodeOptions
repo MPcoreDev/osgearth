@@ -116,7 +116,11 @@ namespace osgEarth
          */
         const TerrainOptions& getTerrainOptions() const;
         void setTerrainOptions( const TerrainOptions& options );
-    
+
+        /** Per theme viewport background color */
+        optional<osg::Vec4f>& colors(Theme theme = defaultTheme) { return _colors[theme]; }
+        const optional<osg::Vec4f>& colors(Theme theme = defaultTheme) const { return _colors[theme]; }
+
     public:
         virtual Config getConfig() const;
         virtual void mergeConfig( const Config& conf );
@@ -134,7 +138,8 @@ namespace osgEarth
         optional<bool>     _overlayMipMapping;
         optional<bool>     _overlayAttachStencil;
         optional<float>    _overlayResolutionRatio;
-        optional<bool> _useCascadeDraping;
+        optional<bool>     _useCascadeDraping;
+        mutable std::unordered_map<Theme, optional<osg::Vec4f>> _colors;
 
         optional<Config> _terrainOptionsConf;
         TerrainOptions* _terrainOptions;

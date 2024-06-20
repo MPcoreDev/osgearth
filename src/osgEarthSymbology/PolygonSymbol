@@ -22,6 +22,9 @@
 
 #include <osgEarthSymbology/Symbol>
 #include <osgEarthSymbology/Fill>
+#include <osgEarth/ThemeInfo>
+#include <unordered_map>
+
 
 namespace osgEarth { namespace Symbology
 {
@@ -40,8 +43,8 @@ namespace osgEarth { namespace Symbology
         virtual ~PolygonSymbol() { }
 
         /** Polygon fill properties. */
-        optional<Fill>& fill() { return _fill; }
-        const optional<Fill>& fill() const { return _fill; }
+        optional<Fill>& fill(Theme theme = defaultTheme) { return _fill[theme]; }
+        const optional<Fill>& fill(Theme theme = defaultTheme) const { return _fill[theme]; }
 
         /** Whether to use a LineStyle (if one exists in the Style) as an outline.
          * This defaults to true, but you set this to false to suppress outlining
@@ -55,7 +58,7 @@ namespace osgEarth { namespace Symbology
         static void parseSLD(const Config& c, class Style& style);
 
     protected:
-        optional<Fill> _fill;
+        mutable std::unordered_map<Theme, optional<Fill>> _fill;
         optional<bool> _outline;
     };
 

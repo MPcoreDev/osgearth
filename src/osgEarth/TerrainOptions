@@ -25,8 +25,10 @@
 #include <osgEarth/Common>
 #include <osgEarth/Config>
 #include <osgEarth/GeoCommon>
+#include <osgEarth/ThemeInfo>
 #include <osg/Texture>
 #include <osg/LOD>
+#include <unordered_map>
 
 namespace osgEarth
 {    
@@ -66,8 +68,9 @@ namespace osgEarth
         const optional<int>& tileSize() const { return _tileSize; }
 
         /** The color of the globe surface where no images are applied */
-        optional<osg::Vec4f>& color() { return _color; }
-        const optional<osg::Vec4f>& color() const { return _color; }
+        optional<osg::Vec4f>& color(Theme theme = defaultTheme) { return _colors[theme]; }
+        const optional<osg::Vec4f>& color(Theme theme = defaultTheme) const { return _colors[theme]; }
+        const std::unordered_map<Theme, optional<osg::Vec4f>>& colors() const { return _colors; }
 
         /**
          * The minimum tile LOD range as a factor of the tile's radius.
@@ -208,7 +211,7 @@ namespace osgEarth
         optional<float> _verticalScale;
         optional<float> _verticalOffset;
         optional<int>   _tileSize;
-        optional<osg::Vec4f> _color;
+        mutable std::unordered_map<Theme, optional<osg::Vec4f>> _colors;
         optional<float> _minTileRangeFactor;        
         optional<unsigned> _minLOD;
         optional<unsigned> _maxLOD;
