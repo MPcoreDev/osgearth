@@ -352,6 +352,7 @@ OverlayDecorator::initializePerViewData( PerViewData& pvd, osg::Camera* cam )
         {
             params._terrainResources = _engine->getResources();
             params._terrainColors = _engine->getTerrainOptions().colors();
+            params._currentTheme = _engine->getMap()->getTheme();
         }
         params._mainCamera = cam;
     }

@@ -433,7 +433,7 @@ DrapingTechnique::setUpCamera(OverlayDecorator::TechRTTParams& params)
     // create the projected texture:
     osg::Texture2D* projTexture = new DrapingTexture();
 
-    osg::Vec4f backColor = _rttTerrainBlending ? params._terrainColors[defaultTheme].get() : osg::Vec4f(0.f, 0.f, 0.f, 0.f);
+    osg::Vec4f backColor = _rttTerrainBlending ? params._terrainColors[params._currentTheme].get() : osg::Vec4f(0.f, 0.f, 0.f, 0.f);
 
     projTexture->setTextureSize( *_textureSize, *_textureSize );
     projTexture->setInternalFormat( GL_RGBA8 );  //use GL_RGBA8 for compatibility with osg's glTexStorage extension

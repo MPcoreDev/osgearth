@@ -31,7 +31,7 @@
 #include <osgEarth/GLUtils>
 #include <osgEarth/HorizonClipPlane>
 #include <osgUtil/Optimizer>
-#include <osgGA/EventVisitor>
+#include <osgViewer/View>
 
 
 using namespace osgEarth;
@@ -740,24 +740,43 @@ MapNode::openMapLayers()
 }
 
 void
+MapNode::setTheme(Theme theme)
+{
+    if(theme != _currentTheme)
+    {
+        _currentTheme = theme;
+        _mustDispatchThemeEvent = true;
+        if(_map)
+            _map->setTheme(_currentTheme);
+    }
+}
+
+Theme
+MapNode::getTheme() const
+{
+    return _currentTheme;
+};
+
+void
 MapNode::traverse( osg::NodeVisitor& nv )
 {
     if ( nv.getVisitorType() == nv.EVENT_VISITOR )
     {
-        // we loop on all events, but we will treat only the 'ThemeInfo' one and break the loop
         auto ev = nv.asEventVisitor();
         auto camera = ev->getActionAdapter()->asView()->getCamera();
-        for (const auto &event: ev->getEvents())
-        {
-            const auto themeInfo{dynamic_cast<ThemeInfo *>(event->getUserData())};
-            if (themeInfo && camera)
-            {
-                const auto &colorOpt{_mapNodeOptions.colors(themeInfo->theme)};
-                const auto &color{colorOpt.isSet() ? colorOpt.get() : _mapNodeOptions.colors(defaultTheme).get()};
-                camera->setClearColor(color);
 
-                break;
-            }
+        // dispatch the theme event if necessary
+        if(_mustDispatchThemeEvent)
+        {
+            const auto &colorOpt{_mapNodeOptions.colors(_currentTheme)};
+            const auto &color{colorOpt.isSet() ? colorOpt.get() : _mapNodeOptions.colors(defaultTheme).get()};
+            camera->setClearColor(color);
+            auto view = dynamic_cast<osgViewer::View*>(ev->getActionAdapter()->asView());
+            if(view)
+                view->getEventQueue()->userEvent(new ThemeInfo(_currentTheme));
+            if(_map)
+                _map->setTheme(_currentTheme);
+            _mustDispatchThemeEvent = false;
         }
 
         unsigned int numBlacklist = Registry::instance()->getNumBlacklistedFilenames();

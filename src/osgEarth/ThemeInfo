@@ -44,8 +44,6 @@ namespace osgEarth
         explicit ThemeInfo(Theme t) : theme(t) {}
         const Theme theme;
     };
-
-
 }
 
 #endif // OSGEARTH_THEME_INFO_H

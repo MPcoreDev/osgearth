@@ -74,7 +74,8 @@ Stroke::getConfig() const {
     Config conf("stroke");
     conf.set("color", _colors[Theme::THEME_DARK]->toHTML() );
     conf.set("color_dark", _colors[Theme::THEME_DARK]->toHTML() );
-    conf.set("color_light", _colors[Theme::THEME_LIGHT]->toHTML() );
+    if(_colors[Theme::THEME_LIGHT].isSet())
+        conf.set("color_light", _colors[Theme::THEME_LIGHT]->toHTML() );
     conf.set("linecap", "flat",   _lineCap, LINECAP_FLAT);
     conf.set("linecap", "square", _lineCap, LINECAP_SQUARE);
     conf.set("linecap", "round",  _lineCap, LINECAP_ROUND);
