@@ -47,7 +47,8 @@ PolygonSymbol::getConfig() const
     conf.key() = "polygon";
     conf.set( "fill", _fill[defaultTheme] );
     conf.set( "fill_dark", _fill[Theme::THEME_DARK] );
-    conf.set( "fill_light", _fill[Theme::THEME_LIGHT] );
+    if(_fill[Theme::THEME_LIGHT].isSet())
+        conf.set( "fill_light", _fill[Theme::THEME_LIGHT] );
     conf.set("outline", _outline);
     return conf;
 }

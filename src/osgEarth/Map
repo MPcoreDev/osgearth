@@ -28,6 +28,7 @@
 #include <osgEarth/Revisioning>
 #include <osgEarth/ThreadingUtils>
 #include <osgEarth/ElevationPool>
+#include <osgEarth/ThemeInfo>
 #include <osgDB/Options>
 
 namespace osgEarth
@@ -257,6 +258,12 @@ namespace osgEarth
          */
         void getAttributions(StringSet& attributions) const;
 
+        /**
+         * Accessors for the current theme
+         */
+        void setTheme(Theme theme);
+        Theme getTheme() const;
+
     protected:
 
         virtual ~Map();
@@ -278,6 +285,7 @@ namespace osgEarth
         Revision _dataModelRevision;
         osg::ref_ptr<osgDB::Options> _readOptions;
         osg::ref_ptr<ElevationPool> _elevationPool;
+        Theme _currentTheme{defaultTheme};
 
         struct VisibleLayerCB : public VisibleLayerCallback {
             osg::observer_ptr<Map> _map;

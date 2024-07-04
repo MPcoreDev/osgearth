@@ -69,6 +69,78 @@ struct HighLatencyFileLocationCallback : public osgDB::FileLocationCallback {
 
     bool useFileCache() const { return false; }
 };
+
+/**
+ * Handle switching between two colors according the a 'ThemeInfo' event
+ * it works only on geometry nodes with only one unique color
+ */
+class UpdateColorEventCallback : public osg::NodeCallback
+{
+public:
+
+    UpdateColorEventCallback(osg::Vec4f colorDark, osg::Vec4f colorLight) : _colors{colorDark, colorLight}
+    {
+    }
+
+    void update(osg::Node *node, osgEarth::Theme theme) const
+    {
+        auto geometry{node->asGeometry()};
+        if (geometry)
+        {
+            auto colorArray{dynamic_cast<osg::Vec4Array*>(geometry->getColorArray())};
+            colorArray->assign(colorArray->size(), _colors[static_cast<std::underlying_type<Theme>::type>(theme)]);
+            colorArray->dirty();
+        }
+    }
+
+    void operator()(osg::Node *node, osg::NodeVisitor *nv) override
+    {
+        const auto ev{nv->asEventVisitor()};
+        if (ev)
+        {
+            // we loop on all events, but we will treat only the 'ThemeInfo' one and break the loop
+            for (const auto &event : ev->getEvents())
+            {
+                const auto themeInfo{dynamic_cast<ThemeInfo*>(event->getUserData())};
+                if(themeInfo)
+                {
+                    update(node, themeInfo->theme);
+
+                    // this callback handles only 'ThemeInfo' events then we can stop here
+                    break;
+                }
+            }
+        }
+
+        traverse(node,nv);
+    }
+
+private:
+    std::array<osg::Vec4f, 2> _colors{};
+};
+
+class InstallUpdateColorEventCallback : public osg::NodeVisitor
+{
+public:
+    InstallUpdateColorEventCallback(osg::Vec4f colorDark, osg::Vec4f colorLight, Theme currentTheme) :
+            _colors{colorDark, colorLight}, _currentTheme{currentTheme}
+    {
+        setTraversalMode(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN);
+    }
+
+    void apply(osg::Geometry& node) override
+    {
+        osg::ref_ptr<UpdateColorEventCallback> callback{new UpdateColorEventCallback(_colors[0], _colors[1])};
+        node.addEventCallback(callback);
+        callback->update(&node, _currentTheme);
+        traverse(node);
+    }
+
+private:
+    std::array<osg::Vec4f, 2> _colors{};
+    Theme _currentTheme{defaultTheme};
+};
+
 } // namespace
 
 //---------------------------------------------------------------------------
@@ -1061,6 +1133,35 @@ osg::Group *FeatureModelGraph::buildTile(const FeatureLevel &level,
                     if (ccc)
                         group->addCullCallback(ccc);
                 }
+            }
+        }
+
+        // install the dark/light theme switch callback if required
+        if (_session->styles()->getDefaultStyle())
+        {
+            optional<osg::Vec4f> darkColor;
+            optional<osg::Vec4f> lightColor;
+            const auto style{*_session->styles()->getDefaultStyle()};
+
+            if(style.has<LineSymbol>())
+            {
+                const auto lineStyle{style.get<LineSymbol>()};
+                darkColor = lineStyle->stroke()->color();
+                if(lineStyle->stroke()->colors(Theme::THEME_LIGHT).isSet())
+                    lightColor = lineStyle->stroke()->colors(Theme::THEME_LIGHT).get();
+            }
+            else if(style.has<PolygonSymbol>())
+            {
+                const auto polyStyle{style.get<PolygonSymbol>()};
+                darkColor = polyStyle->fill()->color();
+                if(polyStyle->fill(Theme::THEME_LIGHT).isSet())
+                    lightColor = polyStyle->fill(Theme::THEME_LIGHT).get().color();
+            }
+
+            if(darkColor.isSet() && lightColor.isSet() && _session->getMap())
+            {
+                InstallUpdateColorEventCallback callbackInstaller{darkColor.get(), lightColor.get(), _session->getMap()->getTheme()};
+                group->accept(callbackInstaller);
             }
         }
 

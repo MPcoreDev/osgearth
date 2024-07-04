@@ -214,6 +214,9 @@ namespace osgEarth
         //! Serializes the MapNode into a Config object
         Config getConfig() const;
 
+        // Set the current theme to apply
+        void setTheme(Theme theme);
+        Theme getTheme() const;
 
     public: // special purpose
 
@@ -283,6 +286,9 @@ namespace osgEarth
         ClampingManager* getClampingManager();
         friend class ClampingTechnique;
         friend class ClampableNode;
+
+        Theme _currentTheme{defaultTheme};
+        bool _mustDispatchThemeEvent{false};
     };
 
 } // namespace osgEarth

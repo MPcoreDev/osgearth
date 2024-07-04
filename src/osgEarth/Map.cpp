@@ -827,3 +827,13 @@ Map::isFast(const TileKey& key, const LayerVector& layers) const
     }
     return true;
 }
+
+void Map::setTheme(Theme theme)
+{
+    _currentTheme = theme;
+}
+
+Theme Map::getTheme() const
+{
+    return _currentTheme;
+}
